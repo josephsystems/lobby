@@ -1,23 +1,43 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "module": "commonjs",
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
+    // ── Language & output ──────────────────────────────────────────────────
     "target": "ES2022",
-    "sourceMap": true,
+    "module": "commonjs",
     "outDir": "./dist",
+    "sourceMap": true,
+    "removeComments": true,
+    "declaration": true,
+
+    // ── Module resolution ─────────────────────────────────────────────────
     "baseUrl": "./",
-    "incremental": true,
-    "skipLibCheck": true,
+    "paths": {
+      "types/*": ["types/*"],
+      "database/*": ["database/*"]
+    },
+
+    // ── Strict checks ─────────────────────────────────────────────────────
+    "strict": true,
     "strictNullChecks": true,
     "noImplicitAny": true,
-    "strictBindCallApply": false,
+    "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
+
+    // ── NestJS / decorator support ────────────────────────────────────────
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // ── Interop ───────────────────────────────────────────────────────────
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+
+    // ── Build performance ─────────────────────────────────────────────────
+    "incremental": true,
+
+    // ── Intentionally relaxed ─────────────────────────────────────────────
+    "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["src/**/*", "database/**/*", "types/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
