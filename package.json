@@ -6,6 +6,7 @@
   "scripts": {
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,md,json}\"",
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prepare": "husky",
