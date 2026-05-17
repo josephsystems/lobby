@@ -8,17 +8,26 @@
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,md,json}\"",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepare": "husky"
+    "prepare": "husky",
+    "setup": "tsx scripts/setup.ts",
+    "migration:run": "tsx scripts/migration-run.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.4.0",
+    "kysely": "^0.28.17",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.2",
+    "@types/pg": "^8.20.0",
     "eslint": "^10.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.2",
     "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.3"
   },
