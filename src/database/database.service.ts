@@ -7,8 +7,8 @@ import type { LobbyDatabase } from '../shared/types/database.types';
 /**
  * Manages the Kysely database instance and the underlying pg Pool.
  *
- * Exposes both the typed Kysely instance for queries and the raw Pool for use cases that
- * require a direct pg client (e.g. running migration SQL files).
+ * Exposes both the typed Kysely instance for queries and the raw Pool for
+ * use cases that require a direct pg client (e.g. running migration SQL files).
  */
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
