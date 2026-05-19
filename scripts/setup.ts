@@ -10,19 +10,23 @@ import {
   log,
   spinner,
 } from '@clack/prompts';
-import {
-  generateInitialMigration,
-  getMigrationTimestamp,
-} from 'database/migration-generator';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { LobbyConfig, FieldDefinition, FieldType } from 'types/config';
+import { generateInitialMigration } from '../src/database/lib/migration-generator';
+import { getMigrationTimestamp } from '../src/shared/utils/timestamp';
+import { PROJECT_ROOT } from '../src/shared/utils/paths';
+import {
+  type LobbyConfig,
+  type FieldDefinition,
+  type FieldType,
+} from '../src/shared/types/config.types';
+import { CONFIG_FILENAME } from '../src/shared/constants/config.constants';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants ───────────────────────────────────────────
 
-const CONFIG_PATH = path.join(process.cwd(), 'lobby.config.json');
-const GITIGNORE_PATH = path.join(process.cwd(), '.gitignore');
-const MIGRATIONS_DIR = path.join(process.cwd(), 'migrations');
+const CONFIG_PATH = path.join(PROJECT_ROOT, CONFIG_FILENAME);
+const GITIGNORE_PATH = path.join(PROJECT_ROOT, '.gitignore');
+const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'migrations');
 
 const RESERVED_FIELD_NAMES = new Set([
   'id',
@@ -34,7 +38,7 @@ const RESERVED_FIELD_NAMES = new Set([
   'updated_at',
 ]);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────
 
 function bail(value: unknown): asserts value is never {
   if (isCancel(value)) {
@@ -63,32 +67,33 @@ function ensureGitignored(entry: string): void {
   }
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Prompts ─────────────────────────────────────────────
 
-async function main() {
-  intro('Lobby — Waitlist Setup');
-  const s = spinner();
-
-  // ── Guard: already configured — setup runs once ───────────────────────────
-
+function guardAlreadyConfigured(): void {
   if (fs.existsSync(CONFIG_PATH)) {
-    log.error('lobby.config.json already exists.');
+    log.error(`${CONFIG_FILENAME} already exists.`);
     log.info('To edit or add fields, run: pnpm run fields');
     process.exit(1);
   }
+}
 
-  // ── Step 1: Waitlist name ─────────────────────────────────────────────────
-
-  const waitlistName = await text({
+async function promptWaitlistName(): Promise<string> {
+  const name = await text({
     message: 'What is your waitlist called?',
     placeholder: 'Rota Early Access',
     validate: (v) =>
       v!.trim().length < 2 ? 'Name must be at least 2 characters.' : undefined,
   });
-  bail(waitlistName);
+  bail(name);
+  return String(name);
+}
 
-  // ── Step 2: Built-in optional fields ─────────────────────────────────────
+interface BuiltInFields {
+  firstName: { enabled: boolean; required: boolean };
+  lastName: { enabled: boolean; required: boolean };
+}
 
+async function promptBuiltInFields(): Promise<BuiltInFields> {
   const wantsFirstName = await confirm({ message: 'Collect first name?' });
   bail(wantsFirstName);
 
@@ -109,31 +114,35 @@ async function main() {
     lastNameRequired = r;
   }
 
-  // ── Step 3: Custom fields loop ────────────────────────────────────────────
+  return {
+    firstName: { enabled: wantsFirstName, required: firstNameRequired },
+    lastName: { enabled: wantsLastName, required: lastNameRequired },
+  };
+}
 
-  const customFields: Record<string, FieldDefinition> = {};
+async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
+  const fields: Record<string, FieldDefinition> = {};
 
   while (true) {
     const wantsMore = await confirm({
       message:
-        Object.keys(customFields).length === 0
+        Object.keys(fields).length === 0
           ? 'Do you want to add any custom fields?'
           : 'Add another custom field?',
     });
     bail(wantsMore);
 
-    if (!wantsMore) {
-      break;
-    }
+    if (!wantsMore) break;
 
     const fieldName = await text({
       message: 'Field name (snake_case)',
       placeholder: 'phone_number',
       validate: (v) => {
-        if (!isSnakeCase(v!)) return 'Must be snake_case (e.g. phone_number).';
-        if (RESERVED_FIELD_NAMES.has(v!))
+        if (!v || !v.trim()) return 'Field name is required.';
+        if (!isSnakeCase(v)) return 'Must be snake_case (e.g. phone_number).';
+        if (RESERVED_FIELD_NAMES.has(v))
           return `"${v}" is a reserved field name.`;
-        if (customFields[v!]) return `"${v}" is already defined.`;
+        if (fields[v]) return `"${v}" is already defined.`;
         return undefined;
       },
     });
@@ -154,53 +163,133 @@ async function main() {
     });
     bail(fieldRequired);
 
-    customFields[String(fieldName)] = {
+    fields[String(fieldName)] = {
       type: fieldType as FieldType,
       required: Boolean(fieldRequired),
     };
   }
 
-  // ── Step 4: Email confirmation ────────────────────────────────────────────
+  return fields;
+}
 
-  const emailEnabled = await confirm({
+interface EmailConfig {
+  enabled: boolean;
+  from?: string;
+}
+
+async function promptEmailConfig(): Promise<EmailConfig> {
+  const enabled = await confirm({
     message: 'Enable email confirmation? (requires Resend)',
   });
-  bail(emailEnabled);
+  bail(enabled);
 
-  let fromEmail: string | undefined;
+  if (!enabled) return { enabled: false };
 
-  if (emailEnabled) {
-    const from = await text({
-      message: 'From email address',
-      placeholder: 'hello@yourproduct.com',
-      validate: (v) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v!)
-          ? undefined
-          : 'Enter a valid email address.',
-    });
-    bail(from);
-    fromEmail = String(from);
-  }
+  const from = await text({
+    message: 'From email address',
+    placeholder: 'hello@yourproduct.com',
+    validate: (v) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v!)
+        ? undefined
+        : 'Enter a valid email address.',
+  });
+  bail(from);
 
-  // ── Step 5: Summary ───────────────────────────────────────────────────────
+  return { enabled: true, from: String(from) };
+}
 
-  const fieldSummary = [
+// ── Review & Write ──────────────────────────────────────
+
+function buildConfig(
+  waitlistName: string,
+  builtIn: BuiltInFields,
+  customFields: Record<string, FieldDefinition>,
+  email: EmailConfig
+): LobbyConfig {
+  const fields: Record<string, FieldDefinition> = {
+    ...(builtIn.firstName.enabled
+      ? { first_name: { type: 'string', required: builtIn.firstName.required } }
+      : {}),
+    ...(builtIn.lastName.enabled
+      ? { last_name: { type: 'string', required: builtIn.lastName.required } }
+      : {}),
+    ...customFields,
+  };
+
+  return {
+    waitlist: { name: waitlistName, fields },
+    email: {
+      enabled: email.enabled,
+      ...(email.from ? { from: email.from } : {}),
+    },
+  };
+}
+
+function formatFieldSummary(
+  builtIn: BuiltInFields,
+  customFields: Record<string, FieldDefinition>
+): string {
+  return [
     'email         TEXT  NOT NULL  (fixed)',
-    ...(wantsFirstName
-      ? [`first_name    TEXT  ${firstNameRequired ? 'NOT NULL' : 'optional'}`]
+    ...(builtIn.firstName.enabled
+      ? [
+          `first_name    TEXT  ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
+        ]
       : []),
-    ...(wantsLastName
-      ? [`last_name     TEXT  ${lastNameRequired ? 'NOT NULL' : 'optional'}`]
+    ...(builtIn.lastName.enabled
+      ? [
+          `last_name     TEXT  ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
+        ]
       : []),
     ...Object.entries(customFields).map(
       ([name, def]) =>
         `${name.padEnd(14)}${def.type.padEnd(8)}${def.required ? 'NOT NULL' : 'optional'}`
     ),
   ].join('\n');
+}
+
+async function confirmAndWrite(config: LobbyConfig): Promise<void> {
+  const s = spinner();
+
+  s.start(`Generating ${CONFIG_FILENAME}...`);
+  fs.writeFileSync(
+    CONFIG_PATH,
+    JSON.stringify(config, null, 2) + '\n',
+    'utf-8'
+  );
+  s.stop(`${CONFIG_FILENAME} created.`);
+
+  s.start('Generating initial migration...');
+  if (fs.existsSync(MIGRATIONS_DIR)) {
+    fs.rmSync(MIGRATIONS_DIR, { recursive: true, force: true });
+  }
+  fs.mkdirSync(MIGRATIONS_DIR, { recursive: true });
+
+  const filename = `${getMigrationTimestamp()}_initial_setup.sql`;
+  const filePath = path.join(MIGRATIONS_DIR, filename);
+  fs.writeFileSync(filePath, generateInitialMigration(config), 'utf-8');
+  s.stop(`Migration file created: migrations/${filename}`);
+
+  ensureGitignored(CONFIG_FILENAME);
+  ensureGitignored('migrations/');
+  ensureGitignored('.env');
+}
+
+// ── Main ────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  intro('Lobby — Waitlist Setup');
+
+  guardAlreadyConfigured();
+
+  const waitlistName = await promptWaitlistName();
+  const builtIn = await promptBuiltInFields();
+  const customFields = await promptCustomFields();
+  const email = await promptEmailConfig();
 
   note(
-    `Waitlist : ${String(waitlistName)}\nFields   :\n${fieldSummary}\nEmail    : ${
-      emailEnabled ? `enabled (from: ${fromEmail})` : 'disabled'
+    `Waitlist : ${waitlistName}\nFields   :\n${formatFieldSummary(builtIn, customFields)}\nEmail    : ${
+      email.enabled ? `enabled (from: ${email.from})` : 'disabled'
     }`,
     'Review'
   );
@@ -212,56 +301,8 @@ async function main() {
     process.exit(0);
   }
 
-  // ── Step 6: Write lobby.config.json ──────────────────────────────────────
-
-  s.start('Generating lobby.config.json...');
-
-  const fields: Record<string, FieldDefinition> = {
-    ...(wantsFirstName
-      ? { first_name: { type: 'string', required: firstNameRequired } }
-      : {}),
-    ...(wantsLastName
-      ? { last_name: { type: 'string', required: lastNameRequired } }
-      : {}),
-    ...customFields,
-  };
-
-  const config: LobbyConfig = {
-    waitlist: { name: String(waitlistName), fields },
-    email: {
-      enabled: Boolean(emailEnabled),
-      ...(fromEmail ? { from: fromEmail } : {}),
-    },
-  };
-
-  fs.writeFileSync(
-    CONFIG_PATH,
-    JSON.stringify(config, null, 2) + '\n',
-    'utf-8'
-  );
-
-  s.stop('lobby.config.json created.');
-
-  // ── Step 7: Generate initial migration ──────────────────────────────────────
-
-  s.start('Generating initial migration...');
-
-  if (fs.existsSync(MIGRATIONS_DIR)) {
-    fs.rmSync(MIGRATIONS_DIR, { recursive: true, force: true });
-  }
-  fs.mkdirSync(MIGRATIONS_DIR, { recursive: true });
-
-  const filename = `${getMigrationTimestamp()}_initial_setup.sql`;
-  const filePath = path.join(MIGRATIONS_DIR, filename);
-
-  fs.writeFileSync(filePath, generateInitialMigration(config), 'utf-8');
-  s.stop(`Migration file created: migrations/${filename}`);
-
-  // ── Step 8: Make sure files are git ignored ──────────────────────────────────────
-
-  ensureGitignored('lobby.config.json');
-  ensureGitignored('migrations/');
-  ensureGitignored('.env');
+  const config = buildConfig(waitlistName, builtIn, customFields, email);
+  await confirmAndWrite(config);
 
   outro('Next step: pnpm run migration:run');
 }
