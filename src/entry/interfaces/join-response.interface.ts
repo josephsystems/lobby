@@ -3,4 +3,5 @@ export interface JoinResponse {
   email: string;
   position: number;
   message: string;
+  isNew: boolean;
 }

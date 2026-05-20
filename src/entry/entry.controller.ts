@@ -1,7 +1,20 @@
-import { Body, Controller, Ip, Headers, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Ip,
+  Headers,
+  Query,
+  Post,
+  Res,
+} from '@nestjs/common';
+import { Response } from 'express';
 import { EntryService } from './entry.service';
 import { JoinDto } from './dto/join.dto';
+import { PositionQueryDto } from './dto/position-query.dto';
 import { JoinResponse } from './interfaces/join-response.interface';
+import { PositionResponse } from './interfaces/position-response.interface';
 
 @Controller('waitlist')
 export class EntryController {
@@ -11,8 +24,19 @@ export class EntryController {
   async join(
     @Body() dto: JoinDto,
     @Ip() ip: string,
-    @Headers('user-agent') userAgent: string
+    @Headers('user-agent') userAgent: string,
+    @Res({ passthrough: true }) res: Response
   ): Promise<JoinResponse> {
-    return this.entryService.join(dto, ip, userAgent);
+    const result = await this.entryService.join(dto, ip, userAgent);
+    res.status(result.isNew ? HttpStatus.CREATED : HttpStatus.OK);
+
+    return result;
+  }
+
+  @Get('position')
+  async getPosition(
+    @Query() query: PositionQueryDto
+  ): Promise<PositionResponse> {
+    return this.entryService.getPosition(query.email);
   }
 }

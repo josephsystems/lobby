@@ -1,13 +1,14 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import type { InsertObject } from 'kysely';
 import { DatabaseService } from '../database/database.service';
 import { LobbyConfigService } from '../config/lobby-config.service';
 import { JoinDto } from './dto/join.dto';
 import { JoinResponse } from './interfaces/join-response.interface';
+import { PositionResponse } from './interfaces/position-response.interface';
 import { LobbyDatabase } from '../shared/types/database.types';
 
 @Injectable()
@@ -32,12 +33,18 @@ export class EntryService {
     // 2. Check for duplicate
     const existing = await this.databaseService.db
       .selectFrom('waitlist_entries')
-      .select(['position'])
+      .select(['id', 'email', 'position'])
       .where('email', '=', email)
       .executeTakeFirst();
 
     if (existing) {
-      throw new ConflictException("You're already on the waitlist.");
+      return {
+        id: existing.id,
+        email: existing.email,
+        position: existing.position,
+        message: "You're already on the list!",
+        isNew: false,
+      };
     }
 
     // 3. Insert entry
@@ -61,7 +68,24 @@ export class EntryService {
       email: entry.email,
       position: entry.position,
       message: "You're on the list!",
+      isNew: true,
     };
+  }
+
+  // ── Position ──────────────────────────────────────────
+
+  async getPosition(email: string): Promise<PositionResponse> {
+    const entry = await this.databaseService.db
+      .selectFrom('waitlist_entries')
+      .select(['email', 'position'])
+      .where('email', '=', email.toLowerCase())
+      .executeTakeFirst();
+
+    if (!entry) {
+      throw new NotFoundException('No entry found for this email address.');
+    }
+
+    return { email: entry.email, position: entry.position };
   }
 
   // ── Helpers ───────────────────────────────────────────
