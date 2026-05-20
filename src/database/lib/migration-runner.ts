@@ -62,7 +62,6 @@ export async function runMigrations(
   await ensureTrackingTable(db);
 
   const migrationsDir = path.join(PROJECT_ROOT, 'migrations');
-  console.log(`MIGRATION DIR -> ${migrationsDir}`);
 
   if (!fs.existsSync(migrationsDir)) {
     log.warn('No migrations/ directory found. Run "pnpm run setup" first.');
