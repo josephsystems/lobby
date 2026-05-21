@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { LobbyMigrationTable } from '../../shared/types/database.types';
-import { PROJECT_ROOT } from '../../shared/utils/paths';
+import { PROJECT_ROOT } from '../../shared/utils/paths.util';
 
 // ── Internal types ──────────────────────────────────────
 

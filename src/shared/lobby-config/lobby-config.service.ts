@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PROJECT_ROOT } from '../utils/paths';
+import { PROJECT_ROOT } from '../utils/paths.util';
 import {
   type LobbyConfig,
   type EmailConfig,
