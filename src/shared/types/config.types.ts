@@ -5,6 +5,13 @@ export interface FieldDefinition {
   required: boolean;
 }
 
+/**
+ * Runtime-dynamic field values from lobby.config.json.
+ * Keys and types are only known at deployment time,
+ * so this is the honest compile-time representation.
+ */
+export type DynamicFieldValues = Record<string, string | number | boolean>;
+
 export interface LobbyConfig {
   waitlist: {
     name: string;
