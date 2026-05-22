@@ -1,0 +1,3 @@
+export enum QueueName {
+  COMMUNICATION_QUEUE = 'COMMUNICATION_QUEUE',
+}
