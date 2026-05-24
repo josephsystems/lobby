@@ -13,8 +13,8 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateInitialMigration } from '../src/database/lib/migration-generator';
-import { getMigrationTimestamp } from '../src/shared/utils/timestamp';
-import { PROJECT_ROOT } from '../src/shared/utils/paths';
+import { getMigrationTimestamp } from '../src/shared/utils/timestamp.util';
+import { PROJECT_ROOT } from '../src/shared/utils/paths.util';
 import {
   type LobbyConfig,
   type EmailConfig,
@@ -22,6 +22,7 @@ import {
   type FieldType,
 } from '../src/shared/types/config.types';
 import { CONFIG_FILENAME } from '../src/shared/constants/config.constants';
+import { setEnvValue } from '../src/shared/utils/env.util';
 
 // ── Constants ───────────────────────────────────────────
 
@@ -251,6 +252,10 @@ async function confirmAndWrite(config: LobbyConfig): Promise<void> {
     'utf-8'
   );
   s.stop(`${CONFIG_FILENAME} created.`);
+
+  s.start('Writing EMAIL_ENABLED to .env...');
+  setEnvValue('EMAIL_ENABLED', String(config.email.enabled));
+  s.stop('EMAIL_ENABLED written to .env.');
 
   s.start('Generating initial migration...');
   if (fs.existsSync(MIGRATIONS_DIR)) {
