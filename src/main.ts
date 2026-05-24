@@ -6,7 +6,8 @@ import { GlobalExceptionFilter } from './shared/filters/global-exception.filter'
 import { ResponseInterceptor } from './shared/interceptors/response.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const emailEnabled = process.env['EMAIL_ENABLED'] === 'true';
+  const app = await NestFactory.create(AppModule.register(emailEnabled));
 
   app.useGlobalPipes(
     new ValidationPipe({
