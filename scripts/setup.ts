@@ -302,7 +302,11 @@ async function main(): Promise<void> {
   const config = buildConfig(waitlistName, builtIn, customFields, email);
   await confirmAndWrite(config);
 
-  outro('Next step: pnpm run migration:run');
+  note(
+    '1. Fill in your .env values (sample at .env.example)\n2. Run pnpm run migration:run',
+    'Next steps'
+  );
+  outro('Good luck with your launch 🚀');
 }
 
 main().catch((err: unknown) => {
