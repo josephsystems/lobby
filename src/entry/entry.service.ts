@@ -5,17 +5,22 @@ import {
 } from '@nestjs/common';
 import type { InsertObject } from 'kysely';
 import { DatabaseService } from '../database/database.service';
-import { LobbyConfigService } from '../config/lobby-config.service';
+import { LobbyConfigService } from '../shared/lobby-config/lobby-config.service';
 import { JoinDto } from './dto/join.dto';
 import { JoinResponse } from './interfaces/join-response.interface';
 import { PositionResponse } from './interfaces/position-response.interface';
 import { LobbyDatabase } from '../shared/types/database.types';
+import { EventService } from '../shared/events/event.service';
+import { CommunicationEvent } from '../shared/events/names/communication.event';
+import { ConfirmationEmailEventPayload } from '../shared/events/payloads/email-event.payload';
+import { DynamicFieldValues } from '../shared/types/config.types';
 
 @Injectable()
 export class EntryService {
   constructor(
     private readonly databaseService: DatabaseService,
-    private readonly lobbyConfig: LobbyConfigService
+    private readonly lobbyConfig: LobbyConfigService,
+    private readonly eventService: EventService
   ) {}
 
   // ── Join ──────────────────────────────────────────────
@@ -61,7 +66,17 @@ export class EntryService {
       .returning(['id', 'email', 'position'])
       .executeTakeFirstOrThrow();
 
-    // TODO: send email
+    if (this.lobbyConfig.email.enabled) {
+      const communicationPayload: ConfirmationEmailEventPayload = {
+        recipientEmail: entry.email,
+        fields: metadata,
+      };
+
+      this.eventService.emit(
+        CommunicationEvent.SEND_CONFIRMATION_EMAIL,
+        communicationPayload
+      );
+    }
 
     return {
       id: entry.id,
@@ -96,9 +111,9 @@ export class EntryService {
    */
   private validateAndSanitize(
     metadata: Record<string, unknown>
-  ): Record<string, unknown> {
+  ): DynamicFieldValues {
     const fields = this.lobbyConfig.fields;
-    const sanitized: Record<string, unknown> = {};
+    const sanitized: DynamicFieldValues = {};
 
     for (const [name, def] of Object.entries(fields)) {
       const value = metadata[name];
@@ -116,7 +131,7 @@ export class EntryService {
             `fields.${name} must be a ${def.type}, got ${typeof value}.`
           );
         }
-        sanitized[name] = value;
+        sanitized[name] = value as string | number | boolean;
       }
     }
 

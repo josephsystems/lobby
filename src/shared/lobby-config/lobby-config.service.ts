@@ -1,12 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PROJECT_ROOT } from '../shared/utils/paths';
+import { PROJECT_ROOT } from '../utils/paths.util';
 import {
   type LobbyConfig,
+  type EmailConfig,
   type FieldDefinition,
-} from '../shared/types/config.types';
-import { CONFIG_FILENAME } from '../shared/constants/config.constants';
+} from '../types/config.types';
+import { CONFIG_FILENAME } from '../constants/config.constants';
 
 @Injectable()
 export class LobbyConfigService implements OnModuleInit {
@@ -24,6 +25,7 @@ export class LobbyConfigService implements OnModuleInit {
     this.config = JSON.parse(
       fs.readFileSync(this.configPath, 'utf-8')
     ) as LobbyConfig;
+
     this.logger.log(`Loaded waitlist: "${this.config.waitlist.name}"`);
   }
 
@@ -35,7 +37,7 @@ export class LobbyConfigService implements OnModuleInit {
     return this.config.waitlist.fields;
   }
 
-  get email(): LobbyConfig['email'] {
+  get email(): EmailConfig {
     return this.config.email;
   }
 }

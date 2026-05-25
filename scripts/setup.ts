@@ -13,14 +13,16 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateInitialMigration } from '../src/database/lib/migration-generator';
-import { getMigrationTimestamp } from '../src/shared/utils/timestamp';
-import { PROJECT_ROOT } from '../src/shared/utils/paths';
+import { getMigrationTimestamp } from '../src/shared/utils/timestamp.util';
+import { PROJECT_ROOT } from '../src/shared/utils/paths.util';
 import {
   type LobbyConfig,
+  type EmailConfig,
   type FieldDefinition,
   type FieldType,
 } from '../src/shared/types/config.types';
 import { CONFIG_FILENAME } from '../src/shared/constants/config.constants';
+import { setEnvValue } from '../src/shared/utils/env.util';
 
 // ── Constants ───────────────────────────────────────────
 
@@ -172,11 +174,6 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
   return fields;
 }
 
-interface EmailConfig {
-  enabled: boolean;
-  from?: string;
-}
-
 async function promptEmailConfig(): Promise<EmailConfig> {
   const enabled = await confirm({
     message: 'Enable email confirmation? (requires Resend)',
@@ -218,10 +215,7 @@ function buildConfig(
 
   return {
     waitlist: { name: waitlistName, fields },
-    email: {
-      enabled: email.enabled,
-      ...(email.from ? { from: email.from } : {}),
-    },
+    email,
   };
 }
 
@@ -258,6 +252,10 @@ async function confirmAndWrite(config: LobbyConfig): Promise<void> {
     'utf-8'
   );
   s.stop(`${CONFIG_FILENAME} created.`);
+
+  s.start('Writing EMAIL_ENABLED to .env...');
+  setEnvValue('EMAIL_ENABLED', String(config.email.enabled));
+  s.stop('EMAIL_ENABLED written to .env.');
 
   s.start('Generating initial migration...');
   if (fs.existsSync(MIGRATIONS_DIR)) {
@@ -304,7 +302,11 @@ async function main(): Promise<void> {
   const config = buildConfig(waitlistName, builtIn, customFields, email);
   await confirmAndWrite(config);
 
-  outro('Next step: pnpm run migration:run');
+  note(
+    '1. Fill in your .env values (sample at .env.example)\n2. Run pnpm run migration:run',
+    'Next steps'
+  );
+  outro('Good luck with your launch 🚀');
 }
 
 main().catch((err: unknown) => {
