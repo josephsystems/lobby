@@ -15,7 +15,6 @@ async function bootstrap() {
     new TrimStringsPipe(),
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
     })
   );
@@ -24,6 +23,33 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   app.setGlobalPrefix('api/v1');
+
+  const appDomain = process.env['APP_DOMAIN']!.replace(
+    /^(?:https?:\/\/)?([^/?#]+).*/,
+    '$1'
+  ).replace(/\./g, '\\.');
+
+  const secureDomainRegex = new RegExp(
+    `^https://([a-zA-Z0-9-]+\\.)*${appDomain}(:[0-9]+)?$`
+  );
+  const domainRegex = new RegExp(
+    `^https?://([a-zA-Z0-9-]+\\.)*${appDomain}(:[0-9]+)?$`
+  );
+  const localhostRegex = /^https?:\/\/localhost:[0-9]+$/;
+
+  const isProd = process.env['NODE_ENV'] === 'production';
+  const isStaging = process.env['NODE_ENV'] === 'staging';
+
+  const allowedOrigin = isProd
+    ? secureDomainRegex
+    : isStaging
+      ? [localhostRegex, domainRegex]
+      : [localhostRegex];
+
+  app.enableCors({
+    origin: allowedOrigin,
+    credentials: true,
+  });
 
   const port = process.env['PORT'] ?? 3000;
   await app.listen(port);
