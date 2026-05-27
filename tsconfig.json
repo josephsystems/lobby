@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    // ── Language & output ───────────────────────────────
+    "target": "ES2022",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "sourceMap": true,
+    "removeComments": true,
+    "declaration": true,
+
+    // ── Strict checks ───────────────────────────────────
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // ── NestJS / decorator support ──────────────────────
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // ── Interop ─────────────────────────────────────────
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+
+    // ── Build performance ───────────────────────────────
+    "incremental": true,
+
+    // ── Intentionally relaxed ───────────────────────────
+    "noFallthroughCasesInSwitch": false
+  },
+  "include": ["src/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

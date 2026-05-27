@@ -1,0 +1,71 @@
+{
+  "name": "lobby",
+  "version": "1.0.0",
+  "description": "Lobby is an open-source, self-hosted waitlist tool built with NestJS and PostgreSQL.",
+  "license": "MIT",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start -b swc -w --type-check",
+    "start:prod": "node dist/main",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,md,json}\"",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepare": "husky",
+    "setup": "tsx scripts/setup.ts",
+    "migration:run": "tsx scripts/migration-run.ts"
+  },
+  "dependencies": {
+    "@nestjs/bull": "^11.0.4",
+    "@nestjs/common": "^11.1.21",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.1.21",
+    "@nestjs/event-emitter": "^3.1.0",
+    "@nestjs/platform-express": "^11.1.21",
+    "@swc/cli": "^0.4.0",
+    "@swc/core": "^1.6.6",
+    "bull": "^4.16.5",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "joi": "^18.2.1",
+    "kysely": "^0.28.17",
+    "pg": "^8.20.0",
+    "reflect-metadata": "^0.2.2",
+    "resend": "^6.12.3",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.4.0",
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
+    "@eslint/js": "^10.0.1",
+    "@nestjs/cli": "^11.0.21",
+    "@nestjs/schematics": "^11.1.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.2",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^17.4.2",
+    "eslint": "^10.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.2",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.3"
+  },
+  "lint-staged": {
+    "*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{md,json,yaml,yml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.33.4"
+  },
+  "packageManager": "pnpm@10.33.4"
+}
