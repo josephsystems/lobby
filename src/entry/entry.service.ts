@@ -100,7 +100,11 @@ export class EntryService {
       throw new NotFoundException('No entry found for this email address.');
     }
 
-    return { email: entry.email, position: entry.position };
+    return {
+      email: entry.email,
+      position: entry.position,
+      message: 'Successfully retrieved position.',
+    };
   }
 
   // ── Helpers ───────────────────────────────────────────
