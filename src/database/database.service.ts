@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { LobbyDatabase } from '../shared/types/database.types';
@@ -21,8 +22,13 @@ export class DatabaseService implements OnModuleDestroy {
       max: 10,
       min: 2,
       idleTimeoutMillis: 30000,
-      ...(config.get('DATABASE_SSL') === 'true' && {
-        ssl: { rejectUnauthorized: false },
+      ...(config.get<boolean>('DATABASE_SSL') && {
+        ssl: {
+          rejectUnauthorized: true,
+          ca: fs.readFileSync(
+            config.getOrThrow<string>('DATABASE_CA_CERT_PATH')
+          ),
+        },
       }),
     });
 
