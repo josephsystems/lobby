@@ -31,4 +31,11 @@ export const envValidationSchema = Joi.object({
     then: Joi.string().required(),
     otherwise: Joi.string().optional(),
   }),
+
+  DATABASE_SSL: Joi.boolean().default(false),
+  DATABASE_CA_CERT_PATH: Joi.when('DATABASE_SSL', {
+    is: true,
+    then: Joi.string().required(),
+    otherwise: Joi.string().optional(),
+  }),
 });
