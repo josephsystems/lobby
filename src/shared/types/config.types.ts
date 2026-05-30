@@ -3,6 +3,7 @@ export type FieldType = 'string' | 'number' | 'boolean';
 export interface FieldDefinition {
   type: FieldType;
   required: boolean;
+  maxLength?: number;
 }
 
 /**
