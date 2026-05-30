@@ -37,15 +37,17 @@ const CONFIG_PATH = path.join(PROJECT_ROOT, CONFIG_FILENAME);
 const GITIGNORE_PATH = path.join(PROJECT_ROOT, '.gitignore');
 const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'migrations');
 
-const RESERVED_FIELD_NAMES = new Set([
-  'id',
-  'email',
-  'position',
-  'ip_address',
-  'user_agent',
-  'created_at',
-  'updated_at',
-]);
+const RESERVED_FIELDS: Record<string, string> = {
+  id: 'Auto-generated unique identifier.',
+  email: 'Primary email address (always collected).',
+  position: 'Auto-assigned waitlist position.',
+  ip_address: 'Client IP address (configurable via privacy settings).',
+  user_agent: 'Client user-agent string (configurable via privacy settings).',
+  created_at: 'Timestamp of when the entry was created.',
+  updated_at: 'Timestamp of when the entry was last updated.',
+};
+
+const RESERVED_FIELD_NAMES = new Set(Object.keys(RESERVED_FIELDS));
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -159,7 +161,7 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
         if (!v || !v.trim()) return 'Field name is required.';
         if (!isSnakeCase(v)) return 'Must be snake_case (e.g. phone_number).';
         if (RESERVED_FIELD_NAMES.has(v))
-          return `"${v}" is a reserved field name.`;
+          return `"${v}" is reserved: ${RESERVED_FIELDS[v]}`;
         if (fields[v]) return `"${v}" is already defined.`;
         return undefined;
       },
