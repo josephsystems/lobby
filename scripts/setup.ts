@@ -18,11 +18,18 @@ import { PROJECT_ROOT } from '../src/shared/utils/paths.util';
 import {
   type LobbyConfig,
   type EmailConfig,
+  type PrivacyConfig,
   type FieldDefinition,
   type FieldType,
 } from '../src/shared/types/config.types';
 import { CONFIG_FILENAME } from '../src/shared/constants/config.constants';
 import { setEnvValue } from '../src/shared/utils/env.util';
+
+// ── Interfaces ──────────────────────────────────────────
+interface BuiltInFields {
+  firstName: { enabled: boolean; required: boolean };
+  lastName: { enabled: boolean; required: boolean };
+}
 
 // ── Constants ───────────────────────────────────────────
 
@@ -90,11 +97,6 @@ async function promptWaitlistName(): Promise<string> {
   return String(name);
 }
 
-interface BuiltInFields {
-  firstName: { enabled: boolean; required: boolean };
-  lastName: { enabled: boolean; required: boolean };
-}
-
 async function promptBuiltInFields(): Promise<BuiltInFields> {
   const wantsFirstName = await confirm({ message: 'Collect first name?' });
   bail(wantsFirstName);
@@ -120,6 +122,20 @@ async function promptBuiltInFields(): Promise<BuiltInFields> {
     firstName: { enabled: wantsFirstName, required: firstNameRequired },
     lastName: { enabled: wantsLastName, required: lastNameRequired },
   };
+}
+
+async function promptPrivacyConfig(): Promise<PrivacyConfig> {
+  const collectIp = await confirm({
+    message: 'Collect IP addresses? (privacy-sensitive)',
+  });
+  bail(collectIp);
+
+  const collectUserAgent = await confirm({
+    message: 'Collect user-agent strings? (privacy-sensitive)',
+  });
+  bail(collectUserAgent);
+
+  return { collectIp, collectUserAgent };
 }
 
 async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
@@ -201,7 +217,8 @@ function buildConfig(
   waitlistName: string,
   builtIn: BuiltInFields,
   customFields: Record<string, FieldDefinition>,
-  email: EmailConfig
+  email: EmailConfig,
+  privacy: PrivacyConfig
 ): LobbyConfig {
   const fields: Record<string, FieldDefinition> = {
     ...(builtIn.firstName.enabled
@@ -216,29 +233,51 @@ function buildConfig(
   return {
     waitlist: { name: waitlistName, fields },
     email,
+    privacy,
   };
 }
 
 function formatFieldSummary(
   builtIn: BuiltInFields,
-  customFields: Record<string, FieldDefinition>
+  customFields: Record<string, FieldDefinition>,
+  privacy: PrivacyConfig
 ): string {
-  return [
-    'email         TEXT  NOT NULL  (fixed)',
+  const fixedColumns = [
+    'email         TEXT  NOT NULL  (always collected)',
+    'position      INTEGER       NOT NULL  (auto-assigned)',
+    ...(privacy.collectIp
+      ? ['ip_address    TEXT   optional  (collected)']
+      : ['ip_address    —             —         (disabled)']),
+    ...(privacy.collectUserAgent
+      ? ['user_agent    TEXT optional  (collected)']
+      : ['user_agent    —             —         (disabled)']),
+  ];
+
+  const userColumns = [
     ...(builtIn.firstName.enabled
       ? [
-          `first_name    TEXT  ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
+          `first_name    TEXT   ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
         ]
       : []),
     ...(builtIn.lastName.enabled
       ? [
-          `last_name     TEXT  ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
+          `last_name     TEXT   ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
         ]
       : []),
-    ...Object.entries(customFields).map(
-      ([name, def]) =>
-        `${name.padEnd(14)}${def.type.padEnd(8)}${def.required ? 'NOT NULL' : 'optional'}`
-    ),
+    ...Object.entries(customFields).map(([name, def]) => {
+      const typeStr = def.type.toUpperCase();
+      return `${name.padEnd(14)}${typeStr.padEnd(14)}${def.required ? 'NOT NULL' : 'optional'}`;
+    }),
+  ];
+
+  const separator = '─'.repeat(57);
+
+  return [
+    '── Fixed columns ──',
+    ...fixedColumns,
+    ...(userColumns.length > 0
+      ? [separator, '── Your fields ──', ...userColumns]
+      : []),
   ].join('\n');
 }
 
@@ -282,11 +321,12 @@ async function main(): Promise<void> {
 
   const waitlistName = await promptWaitlistName();
   const builtIn = await promptBuiltInFields();
+  const privacy = await promptPrivacyConfig();
   const customFields = await promptCustomFields();
   const email = await promptEmailConfig();
 
   note(
-    `Waitlist : ${waitlistName}\nFields   :\n${formatFieldSummary(builtIn, customFields)}\nEmail    : ${
+    `Waitlist : ${waitlistName}\nFields   :\n${formatFieldSummary(builtIn, customFields, privacy)}\nEmail    : ${
       email.enabled ? `enabled (from: ${email.from})` : 'disabled'
     }`,
     'Review'
@@ -299,7 +339,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const config = buildConfig(waitlistName, builtIn, customFields, email);
+  const config = buildConfig(
+    waitlistName,
+    builtIn,
+    customFields,
+    email,
+    privacy
+  );
   await confirmAndWrite(config);
 
   note(
