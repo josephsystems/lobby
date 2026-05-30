@@ -50,13 +50,9 @@ export class AppModule {
           BullModule.forRootAsync({
             inject: [ConfigService],
             useFactory: async (configService: ConfigService) => {
+              const redisConfig = getRedisConfig(configService);
               return {
-                redis: {
-                  host: configService.get<string>('REDIS_HOST'),
-                  port: configService.get<number>('REDIS_PORT'),
-                  password: configService.get<string>('REDIS_PASSWORD'),
-                  user: configService.get<string>('REDIS_USER'),
-                },
+                redis: redisConfig,
               };
             },
           }),
