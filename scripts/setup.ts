@@ -181,9 +181,31 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
     });
     bail(fieldRequired);
 
+    let maxLength: number | undefined = undefined;
+    if (fieldType === 'string') {
+      const len = await text({
+        message: `Maximum character length for "${fieldName}"?`,
+        placeholder: '255',
+        validate: (v) => {
+          if (!v || !v.trim()) return undefined; // Defaults to 255
+          const num = Number(v);
+          if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
+            return 'Must be a positive integer.';
+          }
+          if (num > 65535) {
+            return 'Must be less than or equal to 65535 (maximum VARCHAR size).';
+          }
+          return undefined;
+        },
+      });
+      bail(len);
+      maxLength = len ? Number(len) : 255;
+    }
+
     fields[String(fieldName)] = {
       type: fieldType as FieldType,
       required: Boolean(fieldRequired),
+      ...(maxLength !== undefined && { maxLength }),
     };
   }
 
@@ -222,10 +244,22 @@ function buildConfig(
 ): LobbyConfig {
   const fields: Record<string, FieldDefinition> = {
     ...(builtIn.firstName.enabled
-      ? { first_name: { type: 'string', required: builtIn.firstName.required } }
+      ? {
+          first_name: {
+            type: 'string',
+            required: builtIn.firstName.required,
+            maxLength: 50,
+          },
+        }
       : {}),
     ...(builtIn.lastName.enabled
-      ? { last_name: { type: 'string', required: builtIn.lastName.required } }
+      ? {
+          last_name: {
+            type: 'string',
+            required: builtIn.lastName.required,
+            maxLength: 50,
+          },
+        }
       : {}),
     ...customFields,
   };
@@ -243,29 +277,32 @@ function formatFieldSummary(
   privacy: PrivacyConfig
 ): string {
   const fixedColumns = [
-    'email         TEXT  NOT NULL  (always collected)',
+    'email         VARCHAR(320)  NOT NULL  (always collected)',
     'position      INTEGER       NOT NULL  (auto-assigned)',
     ...(privacy.collectIp
-      ? ['ip_address    TEXT   optional  (collected)']
+      ? ['ip_address    VARCHAR(45)   optional  (collected)']
       : ['ip_address    —             —         (disabled)']),
     ...(privacy.collectUserAgent
-      ? ['user_agent    TEXT optional  (collected)']
+      ? ['user_agent    VARCHAR(1024) optional  (collected)']
       : ['user_agent    —             —         (disabled)']),
   ];
 
   const userColumns = [
     ...(builtIn.firstName.enabled
       ? [
-          `first_name    TEXT   ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
+          `first_name    VARCHAR(50)   ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
         ]
       : []),
     ...(builtIn.lastName.enabled
       ? [
-          `last_name     TEXT   ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
+          `last_name     VARCHAR(50)   ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
         ]
       : []),
     ...Object.entries(customFields).map(([name, def]) => {
-      const typeStr = def.type.toUpperCase();
+      let typeStr = def.type.toUpperCase();
+      if (def.type === 'string') {
+        typeStr = `VARCHAR(${def.maxLength || 255})`;
+      }
       return `${name.padEnd(14)}${typeStr.padEnd(14)}${def.required ? 'NOT NULL' : 'optional'}`;
     }),
   ];
