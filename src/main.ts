@@ -9,9 +9,10 @@ import { ResponseInterceptor } from './shared/interceptors/response.interceptor'
 import { TrimStringsPipe } from './shared/pipes/trim-strings.pipe';
 import { buildCorsOrigin } from './config/cors.config';
 import { Environment } from './shared/constants/environment.constants';
+import { validateConfig } from './config/bootstrap.config';
 
 async function bootstrap() {
-  const emailEnabled = process.env['EMAIL_ENABLED'] === 'true';
+  const { emailEnabled } = validateConfig();
   const app = await NestFactory.create(AppModule.register(emailEnabled));
 
   app.use(helmet());
