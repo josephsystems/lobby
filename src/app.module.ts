@@ -7,7 +7,7 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import Redis from 'ioredis';
 import { LobbyConfigModule } from './shared/lobby-config/lobby-config.module';
 import { DatabaseModule } from './database/database.module';
-import { EntryModule } from './entry/entry.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { HealthModule } from './health/health.module';
 import { CommunicationModule } from './communication/communication.module';
 import { EventModule } from './shared/events/event.module';
@@ -23,7 +23,7 @@ import { getRedisConfig } from './config/redis.config';
     LobbyConfigModule,
     DatabaseModule,
     HealthModule,
-    EntryModule,
+    WaitlistModule,
     EventModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
