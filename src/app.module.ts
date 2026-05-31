@@ -13,6 +13,7 @@ import { CommunicationModule } from './communication/communication.module';
 import { EventModule } from './shared/events/event.module';
 import { envValidationSchema } from './config/env.validation';
 import { getRedisConfig } from './config/redis.config';
+import { LobbyConfig } from './shared/types/config.types';
 
 @Module({
   imports: [
@@ -20,7 +21,6 @@ import { getRedisConfig } from './config/redis.config';
       isGlobal: true,
       validationSchema: envValidationSchema,
     }),
-    LobbyConfigModule,
     DatabaseModule,
     HealthModule,
     WaitlistModule,
@@ -44,7 +44,10 @@ import { getRedisConfig } from './config/redis.config';
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {
-  static register(emailEnabled: boolean): DynamicModule {
+  static register(
+    emailEnabled: boolean,
+    lobbyConfig: LobbyConfig
+  ): DynamicModule {
     const conditionalImports = emailEnabled
       ? [
           BullModule.forRootAsync({
@@ -61,7 +64,7 @@ export class AppModule {
       : [];
     return {
       module: AppModule,
-      imports: [...conditionalImports],
+      imports: [...conditionalImports, LobbyConfigModule.forRoot(lobbyConfig)],
     };
   }
 }

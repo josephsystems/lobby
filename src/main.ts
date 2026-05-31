@@ -9,11 +9,13 @@ import { ResponseInterceptor } from './shared/interceptors/response.interceptor'
 import { TrimStringsPipe } from './shared/pipes/trim-strings.pipe';
 import { buildCorsOrigin } from './config/cors.config';
 import { Environment } from './shared/constants/environment.constants';
-import { validateConfig } from './config/bootstrap.config';
+import { loadAndValidateConfig } from './config/bootstrap.config';
 
 async function bootstrap() {
-  const { emailEnabled } = validateConfig();
-  const app = await NestFactory.create(AppModule.register(emailEnabled));
+  const { emailEnabled, lobbyConfig } = loadAndValidateConfig();
+  const app = await NestFactory.create(
+    AppModule.register(emailEnabled, lobbyConfig)
+  );
 
   app.use(helmet());
 

@@ -5,13 +5,14 @@ import type { LobbyConfig } from '../shared/types/config.types';
 
 export interface BootstrapConfig {
   emailEnabled: boolean;
+  lobbyConfig: LobbyConfig;
 }
 
 /**
  * Performs fail-fast validations on the file system and environment variables
  * prior to NestJS bootstrapping to ensure dependencies are fully satisfied.
  */
-export function validateConfig(): BootstrapConfig {
+export function loadAndValidateConfig(): BootstrapConfig {
   const configPath = path.join(
     process.env['PROJECT_ROOT'] || process.cwd(),
     CONFIG_FILENAME
@@ -56,5 +57,6 @@ export function validateConfig(): BootstrapConfig {
 
   return {
     emailEnabled: lobbyConfig.email.enabled,
+    lobbyConfig,
   };
 }
