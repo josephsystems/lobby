@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -30,7 +30,13 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: '/', method: RequestMethod.GET },
+      { path: '/api', method: RequestMethod.GET },
+      { path: '/api/v1', method: RequestMethod.GET },
+    ],
+  });
 
   const nodeEnv = process.env['NODE_ENV'] ?? Environment.DEVELOPMENT;
   const appDomain = process.env['APP_DOMAIN']!;

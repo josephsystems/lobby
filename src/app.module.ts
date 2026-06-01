@@ -5,6 +5,8 @@ import { BullModule } from '@nestjs/bull';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { LobbyConfigModule } from './shared/lobby-config/lobby-config.module';
 import { DatabaseModule } from './database/database.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
@@ -41,7 +43,8 @@ import { LobbyConfig } from './shared/types/config.types';
       },
     }),
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  controllers: [AppController],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {
   static register(
