@@ -1,5 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
+import { Environment } from '../../shared/constants/environment.constants';
+
+const isDev =
+  (process.env['NODE_ENV'] ?? Environment.DEVELOPMENT) ===
+  Environment.DEVELOPMENT;
 
 export class ProcessorLogger {
   private static readonly loggers = new Map<string, Logger>();
@@ -29,14 +34,14 @@ export class ProcessorLogger {
   public static onCompleted(job: Job, processorName: string): void {
     const logger = this.getLogger(processorName);
     logger.log(
-      `Job ${job.id} [${this.getEventName(job)}]: Completed successfully - Data: ${JSON.stringify(job.data)}`
+      `Job ${job.id} [${this.getEventName(job)}]: Completed successfully ${isDev ? `- Data: ${JSON.stringify(job.data)}` : ''}`
     );
   }
 
   public static onError(job: Job, processorName: string): void {
     const logger = this.getLogger(processorName);
     logger.error(
-      `Job ${job.id} [${this.getEventName(job)}]: Failed - Data: ${JSON.stringify(job.data)} - Reason: ${job.failedReason || 'Unknown error'}`,
+      `Job ${job.id} [${this.getEventName(job)}]: Failed ${isDev ? `- Data: ${JSON.stringify(job.data)}` : ''} - Reason: ${job.failedReason || 'Unknown error'}`,
       job.stacktrace?.join('\n')
     );
   }

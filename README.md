@@ -110,8 +110,14 @@ APP_DOMAIN="yourproduct.com"
 
 # Optional: Set to true if you enabled email confirmations during setup
 EMAIL_ENABLED=false
+
+# Optional: Redis connection for email queues and/or distributed rate limiting.
+# Rate limiting uses in-memory storage by default.
+# If Redis credentials are provided, rate limiting automatically uses Redis —
+# useful for multi-instance deployments behind a load balancer.
 REDIS_HOST="localhost"
 REDIS_PORT=6379
+
 RESEND_API_KEY="re_..."
 RESEND_CONFIRMATION_TEMPLATE_ID="d3..."
 ```

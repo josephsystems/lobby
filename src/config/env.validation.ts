@@ -1,9 +1,10 @@
 import * as Joi from 'joi';
+import { Environment } from '../shared/constants/environment.constants';
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
-    .valid('development', 'production', 'staging')
-    .default('development'),
+    .valid(...Object.values(Environment))
+    .default(Environment.DEVELOPMENT),
   APP_DOMAIN: Joi.string().required(),
   DATABASE_URL: Joi.string().required(),
   EMAIL_ENABLED: Joi.boolean().default(false),
@@ -27,6 +28,13 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().optional(),
   }),
   RESEND_CONFIRMATION_TEMPLATE_ID: Joi.when('EMAIL_ENABLED', {
+    is: true,
+    then: Joi.string().required(),
+    otherwise: Joi.string().optional(),
+  }),
+
+  DATABASE_SSL: Joi.boolean().default(false),
+  DATABASE_CA_CERT_PATH: Joi.when('DATABASE_SSL', {
     is: true,
     then: Joi.string().required(),
     otherwise: Joi.string().optional(),

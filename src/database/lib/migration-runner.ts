@@ -64,7 +64,7 @@ export async function runMigrations(
   const migrationsDir = path.join(PROJECT_ROOT, 'migrations');
 
   if (!fs.existsSync(migrationsDir)) {
-    log.warn('No migrations/ directory found. Run "pnpm run setup" first.');
+    log.warn('No migrations/ directory found. Have you ran "pnpm run setup"?');
     return { applied: [], skipped: 0 };
   }
 
@@ -74,7 +74,7 @@ export async function runMigrations(
     .sort(); // YYYYMMDDHHMMSS_ prefix keeps them in correct order
 
   if (files.length === 0) {
-    log.info('No migration files found.');
+    log.info('No migration files found. Have you ran "pnpm run setup"?');
     return { applied: [], skipped: 0 };
   }
 

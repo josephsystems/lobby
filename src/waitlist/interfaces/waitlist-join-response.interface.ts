@@ -1,4 +1,4 @@
-export interface JoinResponse {
+export interface WaitlistJoinResponse {
   id: string;
   email: string;
   position: number;

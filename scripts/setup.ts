@@ -18,11 +18,17 @@ import { PROJECT_ROOT } from '../src/shared/utils/paths.util';
 import {
   type LobbyConfig,
   type EmailConfig,
+  type PrivacyConfig,
   type FieldDefinition,
   type FieldType,
 } from '../src/shared/types/config.types';
 import { CONFIG_FILENAME } from '../src/shared/constants/config.constants';
-import { setEnvValue } from '../src/shared/utils/env.util';
+
+// ── Interfaces ──────────────────────────────────────────
+interface BuiltInFields {
+  firstName: { enabled: boolean; required: boolean };
+  lastName: { enabled: boolean; required: boolean };
+}
 
 // ── Constants ───────────────────────────────────────────
 
@@ -30,15 +36,17 @@ const CONFIG_PATH = path.join(PROJECT_ROOT, CONFIG_FILENAME);
 const GITIGNORE_PATH = path.join(PROJECT_ROOT, '.gitignore');
 const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'migrations');
 
-const RESERVED_FIELD_NAMES = new Set([
-  'id',
-  'email',
-  'position',
-  'ip_address',
-  'user_agent',
-  'created_at',
-  'updated_at',
-]);
+const RESERVED_FIELDS: Record<string, string> = {
+  id: 'Auto-generated unique identifier.',
+  email: 'Primary email address (always collected).',
+  position: 'Auto-assigned waitlist position.',
+  ip_address: 'Client IP address (configurable via privacy settings).',
+  user_agent: 'Client user-agent string (configurable via privacy settings).',
+  created_at: 'Timestamp of when the entry was created.',
+  updated_at: 'Timestamp of when the entry was last updated.',
+};
+
+const RESERVED_FIELD_NAMES = new Set(Object.keys(RESERVED_FIELDS));
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -90,11 +98,6 @@ async function promptWaitlistName(): Promise<string> {
   return String(name);
 }
 
-interface BuiltInFields {
-  firstName: { enabled: boolean; required: boolean };
-  lastName: { enabled: boolean; required: boolean };
-}
-
 async function promptBuiltInFields(): Promise<BuiltInFields> {
   const wantsFirstName = await confirm({ message: 'Collect first name?' });
   bail(wantsFirstName);
@@ -122,6 +125,20 @@ async function promptBuiltInFields(): Promise<BuiltInFields> {
   };
 }
 
+async function promptPrivacyConfig(): Promise<PrivacyConfig> {
+  const collectIp = await confirm({
+    message: 'Collect IP addresses? (privacy-sensitive)',
+  });
+  bail(collectIp);
+
+  const collectUserAgent = await confirm({
+    message: 'Collect user-agent strings? (privacy-sensitive)',
+  });
+  bail(collectUserAgent);
+
+  return { collectIp, collectUserAgent };
+}
+
 async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
   const fields: Record<string, FieldDefinition> = {};
 
@@ -143,7 +160,7 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
         if (!v || !v.trim()) return 'Field name is required.';
         if (!isSnakeCase(v)) return 'Must be snake_case (e.g. phone_number).';
         if (RESERVED_FIELD_NAMES.has(v))
-          return `"${v}" is a reserved field name.`;
+          return `"${v}" is reserved: ${RESERVED_FIELDS[v]}`;
         if (fields[v]) return `"${v}" is already defined.`;
         return undefined;
       },
@@ -165,9 +182,31 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
     });
     bail(fieldRequired);
 
+    let maxLength: number | undefined = undefined;
+    if (fieldType === 'string') {
+      const len = await text({
+        message: `Maximum character length for "${fieldName}"?`,
+        placeholder: '255',
+        validate: (v) => {
+          if (!v || !v.trim()) return undefined; // Defaults to 255
+          const num = Number(v);
+          if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
+            return 'Must be a positive integer.';
+          }
+          if (num > 65535) {
+            return 'Must be less than or equal to 65535 (maximum VARCHAR size).';
+          }
+          return undefined;
+        },
+      });
+      bail(len);
+      maxLength = len ? Number(len) : 255;
+    }
+
     fields[String(fieldName)] = {
       type: fieldType as FieldType,
       required: Boolean(fieldRequired),
+      ...(maxLength !== undefined && { maxLength }),
     };
   }
 
@@ -201,14 +240,27 @@ function buildConfig(
   waitlistName: string,
   builtIn: BuiltInFields,
   customFields: Record<string, FieldDefinition>,
-  email: EmailConfig
+  email: EmailConfig,
+  privacy: PrivacyConfig
 ): LobbyConfig {
   const fields: Record<string, FieldDefinition> = {
     ...(builtIn.firstName.enabled
-      ? { first_name: { type: 'string', required: builtIn.firstName.required } }
+      ? {
+          first_name: {
+            type: 'string',
+            required: builtIn.firstName.required,
+            maxLength: 50,
+          },
+        }
       : {}),
     ...(builtIn.lastName.enabled
-      ? { last_name: { type: 'string', required: builtIn.lastName.required } }
+      ? {
+          last_name: {
+            type: 'string',
+            required: builtIn.lastName.required,
+            maxLength: 50,
+          },
+        }
       : {}),
     ...customFields,
   };
@@ -216,29 +268,54 @@ function buildConfig(
   return {
     waitlist: { name: waitlistName, fields },
     email,
+    privacy,
   };
 }
 
 function formatFieldSummary(
   builtIn: BuiltInFields,
-  customFields: Record<string, FieldDefinition>
+  customFields: Record<string, FieldDefinition>,
+  privacy: PrivacyConfig
 ): string {
-  return [
-    'email         TEXT  NOT NULL  (fixed)',
+  const fixedColumns = [
+    'email         VARCHAR(320)  NOT NULL  (always collected)',
+    'position      INTEGER       NOT NULL  (auto-assigned)',
+    ...(privacy.collectIp
+      ? ['ip_address    VARCHAR(45)   optional  (collected)']
+      : ['ip_address    —             —         (disabled)']),
+    ...(privacy.collectUserAgent
+      ? ['user_agent    VARCHAR(1024) optional  (collected)']
+      : ['user_agent    —             —         (disabled)']),
+  ];
+
+  const userColumns = [
     ...(builtIn.firstName.enabled
       ? [
-          `first_name    TEXT  ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
+          `first_name    VARCHAR(50)   ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
         ]
       : []),
     ...(builtIn.lastName.enabled
       ? [
-          `last_name     TEXT  ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
+          `last_name     VARCHAR(50)   ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
         ]
       : []),
-    ...Object.entries(customFields).map(
-      ([name, def]) =>
-        `${name.padEnd(14)}${def.type.padEnd(8)}${def.required ? 'NOT NULL' : 'optional'}`
-    ),
+    ...Object.entries(customFields).map(([name, def]) => {
+      let typeStr = def.type.toUpperCase();
+      if (def.type === 'string') {
+        typeStr = `VARCHAR(${def.maxLength || 255})`;
+      }
+      return `${name.padEnd(14)}${typeStr.padEnd(14)}${def.required ? 'NOT NULL' : 'optional'}`;
+    }),
+  ];
+
+  const separator = '─'.repeat(57);
+
+  return [
+    '── Fixed columns ──',
+    ...fixedColumns,
+    ...(userColumns.length > 0
+      ? [separator, '── Your fields ──', ...userColumns]
+      : []),
   ].join('\n');
 }
 
@@ -252,10 +329,6 @@ async function confirmAndWrite(config: LobbyConfig): Promise<void> {
     'utf-8'
   );
   s.stop(`${CONFIG_FILENAME} created.`);
-
-  s.start('Writing EMAIL_ENABLED to .env...');
-  setEnvValue('EMAIL_ENABLED', String(config.email.enabled));
-  s.stop('EMAIL_ENABLED written to .env.');
 
   s.start('Generating initial migration...');
   if (fs.existsSync(MIGRATIONS_DIR)) {
@@ -282,11 +355,12 @@ async function main(): Promise<void> {
 
   const waitlistName = await promptWaitlistName();
   const builtIn = await promptBuiltInFields();
+  const privacy = await promptPrivacyConfig();
   const customFields = await promptCustomFields();
   const email = await promptEmailConfig();
 
   note(
-    `Waitlist : ${waitlistName}\nFields   :\n${formatFieldSummary(builtIn, customFields)}\nEmail    : ${
+    `Waitlist : ${waitlistName}\nFields   :\n${formatFieldSummary(builtIn, customFields, privacy)}\nEmail    : ${
       email.enabled ? `enabled (from: ${email.from})` : 'disabled'
     }`,
     'Review'
@@ -299,7 +373,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const config = buildConfig(waitlistName, builtIn, customFields, email);
+  const config = buildConfig(
+    waitlistName,
+    builtIn,
+    customFields,
+    email,
+    privacy
+  );
   await confirmAndWrite(config);
 
   note(

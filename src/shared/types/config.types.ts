@@ -3,6 +3,7 @@ export type FieldType = 'string' | 'number' | 'boolean';
 export interface FieldDefinition {
   type: FieldType;
   required: boolean;
+  maxLength?: number;
 }
 
 /**
@@ -14,6 +15,11 @@ export type DynamicFieldValues = Record<string, string | number | boolean>;
 
 export type EmailConfig = { enabled: true; from: string } | { enabled: false };
 
+export interface PrivacyConfig {
+  collectIp: boolean;
+  collectUserAgent: boolean;
+}
+
 export interface LobbyConfig {
   waitlist: {
     name: string;
@@ -24,4 +30,5 @@ export interface LobbyConfig {
     fields: Record<string, FieldDefinition>;
   };
   email: EmailConfig;
+  privacy: PrivacyConfig;
 }

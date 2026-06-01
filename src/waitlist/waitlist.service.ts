@@ -6,9 +6,9 @@ import {
 import type { InsertObject } from 'kysely';
 import { DatabaseService } from '../database/database.service';
 import { LobbyConfigService } from '../shared/lobby-config/lobby-config.service';
-import { JoinDto } from './dto/join.dto';
-import { JoinResponse } from './interfaces/join-response.interface';
-import { PositionResponse } from './interfaces/position-response.interface';
+import { WaitlistJoinDto } from './dto/waitlist-join.dto';
+import { WaitlistJoinResponse } from './interfaces/waitlist-join-response.interface';
+import { WaitlistPositionResponse } from './interfaces/waitlist-position-response.interface';
 import { LobbyDatabase } from '../shared/types/database.types';
 import { EventService } from '../shared/events/event.service';
 import { CommunicationEvent } from '../shared/events/names/communication.event';
@@ -16,7 +16,7 @@ import { ConfirmationEmailEventPayload } from '../shared/events/payloads/email-e
 import { DynamicFieldValues } from '../shared/types/config.types';
 
 @Injectable()
-export class EntryService {
+export class WaitlistService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly lobbyConfig: LobbyConfigService,
@@ -26,10 +26,10 @@ export class EntryService {
   // ── Join ──────────────────────────────────────────────
 
   async join(
-    dto: JoinDto,
+    dto: WaitlistJoinDto,
     ip: string | undefined,
     userAgent: string | undefined
-  ): Promise<JoinResponse> {
+  ): Promise<WaitlistJoinResponse> {
     // 1. Validate and sanitize dynamic fields against lobby.config.json
     const metadata = this.validateAndSanitize(dto.fields ?? {});
 
@@ -52,17 +52,22 @@ export class EntryService {
       };
     }
 
-    // 3. Insert entry
-    const insertData = {
+    // 3. Insert entry, respecting privacy settings
+    const insertData: Record<string, unknown> = {
       email,
-      ip_address: ip ?? null,
-      user_agent: userAgent ?? null,
       ...metadata,
-    } as InsertObject<LobbyDatabase, 'waitlist_entries'>;
+    };
+
+    if (this.lobbyConfig.privacy.collectIp) {
+      insertData['ip_address'] = ip ?? null;
+    }
+    if (this.lobbyConfig.privacy.collectUserAgent) {
+      insertData['user_agent'] = userAgent ?? null;
+    }
 
     const entry = await this.databaseService.db
       .insertInto('waitlist_entries')
-      .values(insertData)
+      .values(insertData as InsertObject<LobbyDatabase, 'waitlist_entries'>)
       .returning(['id', 'email', 'position'])
       .executeTakeFirstOrThrow();
 
@@ -89,7 +94,7 @@ export class EntryService {
 
   // ── Position ──────────────────────────────────────────
 
-  async getPosition(email: string): Promise<PositionResponse> {
+  async getPosition(email: string): Promise<WaitlistPositionResponse> {
     const entry = await this.databaseService.db
       .selectFrom('waitlist_entries')
       .select(['email', 'position'])
@@ -134,6 +139,14 @@ export class EntryService {
           throw new BadRequestException(
             `fields.${name} must be a ${def.type}, got ${typeof value}.`
           );
+        }
+        if (typeof value === 'string') {
+          const maxLen = def.maxLength || 255;
+          if (value.length > maxLen) {
+            throw new BadRequestException(
+              `fields.${name} must not exceed ${maxLen} characters.`
+            );
+          }
         }
         sanitized[name] = value as string | number | boolean;
       }

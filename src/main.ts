@@ -1,15 +1,23 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
 import { ResponseInterceptor } from './shared/interceptors/response.interceptor';
 import { TrimStringsPipe } from './shared/pipes/trim-strings.pipe';
+import { buildCorsOrigin } from './config/cors.config';
+import { Environment } from './shared/constants/environment.constants';
+import { loadAndValidateConfig } from './config/bootstrap.config';
 
 async function bootstrap() {
-  const emailEnabled = process.env['EMAIL_ENABLED'] === 'true';
-  const app = await NestFactory.create(AppModule.register(emailEnabled));
+  const { emailEnabled, lobbyConfig } = loadAndValidateConfig();
+  const app = await NestFactory.create(
+    AppModule.register(emailEnabled, lobbyConfig)
+  );
+
+  app.use(helmet());
 
   app.useGlobalPipes(
     new TrimStringsPipe(),
@@ -22,32 +30,19 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: '/', method: RequestMethod.GET },
+      { path: '/api', method: RequestMethod.GET },
+      { path: '/api/v1', method: RequestMethod.GET },
+    ],
+  });
 
-  const appDomain = process.env['APP_DOMAIN']!.replace(
-    /^(?:https?:\/\/)?([^/?#]+).*/,
-    '$1'
-  ).replace(/\./g, '\\.');
-
-  const secureDomainRegex = new RegExp(
-    `^https://([a-zA-Z0-9-]+\\.)*${appDomain}(:[0-9]+)?$`
-  );
-  const domainRegex = new RegExp(
-    `^https?://([a-zA-Z0-9-]+\\.)*${appDomain}(:[0-9]+)?$`
-  );
-  const localhostRegex = /^https?:\/\/localhost:[0-9]+$/;
-
-  const isProd = process.env['NODE_ENV'] === 'production';
-  const isStaging = process.env['NODE_ENV'] === 'staging';
-
-  const allowedOrigin = isProd
-    ? secureDomainRegex
-    : isStaging
-      ? [localhostRegex, domainRegex]
-      : [localhostRegex];
+  const nodeEnv = process.env['NODE_ENV'] ?? Environment.DEVELOPMENT;
+  const appDomain = process.env['APP_DOMAIN']!;
 
   app.enableCors({
-    origin: allowedOrigin,
+    origin: buildCorsOrigin(appDomain, nodeEnv),
     credentials: true,
   });
 
