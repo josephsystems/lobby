@@ -71,19 +71,15 @@ sequenceDiagram
 
 ## ⚡ Quick Start (Under 5 Minutes)
 
-Deploying your waitlist backend is straightforward. Ensure you have **Node.js (>=22.0.0)** and **pnpm (>=10.33.4)** installed, and a PostgreSQL instance ready.
+Deploying your waitlist backend is straightforward. Ensure you have **Node.js (>=22.0.0)** and **pnpm (>=10.33.4)** installed. _(Note: A PostgreSQL database instance is only required starting at Step 4)._
 
 ### 1. Clone & Install Dependencies
 
 ```bash
-git clone https://github.com/josephsystems/lobby.git
-cd lobby
-pnpm install
+git clone https://github.com/josephsystems/lobby.git && cd lobby && pnpm install
 ```
 
 ### 2. Run the Interactive Setup Wizard
-
-Kick off the setup CLI to configure your waitlist, select built-in fields (first/last names), and define custom field names and types:
 
 ```bash
 pnpm run setup
@@ -96,70 +92,36 @@ This command generates:
 
 ### 3. Configure Environment Variables
 
-Copy the template `.env.example` to `.env` and fill in your connection details:
+Copy the template `.env.example` to `.env` and configure your credentials:
 
 ```bash
 cp .env.example .env
 ```
 
-Key configuration properties:
+> [!NOTE]
+> **Resend Template Variables**: Your Resend template will receive the following variables dynamically:
+>
+> - `email`: The signup's email address.
+> - `position`: The signup's queue position (integer).
+> - Any custom fields configured in `lobby.config.json` (e.g., `first_name`, `last_name`, etc.).
 
-```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/lobby_db?schema=public"
-APP_DOMAIN="yourproduct.com"
+### 4. Run Migrations
 
-# Optional: Set to true if you enabled email confirmations during setup
-EMAIL_ENABLED=false
-
-# Optional: Redis connection for email queues and/or distributed rate limiting.
-# Rate limiting uses in-memory storage by default.
-# If Redis credentials are provided, rate limiting automatically uses Redis —
-# useful for multi-instance deployments behind a load balancer.
-REDIS_HOST="localhost"
-REDIS_PORT=6379
-
-RESEND_API_KEY="re_..."
-RESEND_CONFIRMATION_TEMPLATE_ID="d3..."
-```
-
-### 4. Run Migrations & Start Lobby
-
-Apply the migration files to construct your custom Postgres table and start your backend:
+Apply the migration files to construct your custom database tables:
 
 ```bash
 pnpm run migration:run
+```
+
+### 5. Start Lobby
+
+Start the NestJS development server:
+
+```bash
 pnpm run start:dev
 ```
 
 Your waitlist API is now active at `http://localhost:3000/api/v1`! 🚀
-
----
-
-## ⚙️ Schema & Field Management
-
-One of Lobby's core capabilities is evolving your signup forms over time without losing user records or manually writing SQL.
-
-### Add New Fields
-
-Need to collect more information (e.g., product tier or twitter handle)? Run:
-
-```bash
-pnpm run fields:add
-```
-
-This interactive script asks for your new field definition, updates your `lobby.config.json`, and automatically outputs a safe `ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS ...` migration file.
-
-### Edit Existing Fields
-
-To modify field configurations, change required status, delete fields, or update data types:
-
-```bash
-pnpm run fields:edit
-```
-
-This CLI scans your current configurations, prompts you for changes, and generates a corresponding database migration with safety warnings (e.g., if you are converting a nullable field to `NOT NULL` or casting a type).
-
-_Run `pnpm run migration:run` after modifying your schema to apply changes to your database._
 
 ---
 
@@ -176,13 +138,11 @@ Submits a signup request. Dynamic fields are added to `fields` and validated aga
 
 ```json
 {
-  "email": "developer@rota.ng",
+  "email": "developer@example.com",
   "fields": {
     "first_name": "Ada",
     "last_name": "Lovelace",
-    "phone": "+2348000000000",
-    "school_name": "Rota Technical College",
-    "school_address": "123 Innovation Drive"
+    "phone": "+2348000000000"
   }
 }
 ```
@@ -191,11 +151,14 @@ Submits a signup request. Dynamic fields are added to `fields` and validated aga
 
 ```json
 {
-  "id": "2e6b223c-f4e1-456b-be39-2a912bb0e7b8",
-  "email": "developer@rota.ng",
-  "position": 42,
-  "message": "You're on the list!",
-  "isNew": true
+  "status": "success",
+  "data": {
+    "id": "2e6b223c-f4e1-456b-be39-2a912bb0e7b8",
+    "email": "developer@example.com",
+    "position": 42,
+    "message": "You're on the list!",
+    "isNew": true
+  }
 }
 ```
 
@@ -205,11 +168,14 @@ Submitting the same email again is safe and returns the user's existing queue po
 
 ```json
 {
-  "id": "2e6b223c-f4e1-456b-be39-2a912bb0e7b8",
-  "email": "developer@rota.ng",
-  "position": 42,
-  "message": "You're already on the list!",
-  "isNew": false
+  "status": "success",
+  "data": {
+    "id": "2e6b223c-f4e1-456b-be39-2a912bb0e7b8",
+    "email": "developer@example.com",
+    "position": 42,
+    "message": "You're already on the list!",
+    "isNew": false
+  }
 }
 ```
 
@@ -226,15 +192,19 @@ Retrieves a user's current place in the waitlist queue.
 #### Example Request:
 
 ```http
-GET /api/v1/waitlist/position?email=developer@rota.ng
+GET /api/v1/waitlist/position?email=developer@example.com
 ```
 
 #### Successful Response (`200 OK`):
 
 ```json
 {
-  "email": "developer@rota.ng",
-  "position": 42
+  "status": "success",
+  "data": {
+    "message": "Successfully retrieved position.",
+    "email": "developer@example.com",
+    "position": 42
+  }
 }
 ```
 
@@ -250,30 +220,96 @@ Lobby is a public-facing API but contains rigorous protection to prevent malicio
   - **Staging**: Allows standard localhost routes plus your secure production domains.
   - **Development**: Automatically permits localhost ports (`http://localhost:*`).
 
----
-
 ## 📦 Deployment Options
 
-### 1. Serverless (Vercel)
+To deploy Lobby, you will need a **PostgreSQL Database** and (optionally) a **Redis Instance** (required only if `email is enabled in lobby.config.json`) for BullMQ queues and rate limiting.
 
-Lobby is optimized for lightweight execution. For Vercel hosting:
+---
 
-1. Link your repository to a Vercel Project.
-2. Spin up a [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) instance.
-3. Configure the environment variables in Vercel to point `DATABASE_URL` to your database.
-4. Set `EMAIL_ENABLED=false` or configure external Redis connection values (like [Upstash Redis](https://upstash.com/)) to use BullMQ queues.
+### 🗄️ Step 1: Provision Core Services
 
-### 2. VPS & Self-Hosted (Docker)
+#### 1. PostgreSQL Database
 
-Lobby ships with a multi-stage `Dockerfile` and a simple `docker-compose.yml` for unified hosting with PostgreSQL and Redis.
+Choose one of the following providers:
 
-To spin up the entire cluster:
+- **Supabase (Free/Managed)**: Create a project at [Supabase](https://supabase.com). Copy the PostgreSQL transaction/session connection string from Database Settings.
+- **Neon (Free/Managed)**: Create a serverless database at [Neon](https://neon.tech), which is excellent for serverless environments.
+- **Self-Hosted / VPS**: Run PostgreSQL natively or via Docker.
+
+#### 2. Redis Instance (Optional)
+
+Required only if `email is enabled in lobby.config.json`.
+
+- **Upstash (Free/Managed)**: Serverless Redis with a generous free tier. Create one at [Upstash](https://upstash.com).
+- **Aiven (Free/Managed)**: Managed Redis with a free tier. Create one at [Aiven](https://aiven.io).
+- **Redis (Free/Managed)**: Managed Redis with a free tier. Create one at [Redis](https://redis.io).
+- **Self-Hosted / VPS**: Run Redis natively or via Docker.
+
+---
+
+### 🚀 Step 2: Choose Your Hosting Provider
+
+#### Option A: Railway (PaaS)
+
+Railway is a fast way to host your app, PostgreSQL, and Redis in one dashboard.
+
+1. Create a new project in Railway.
+2. Connect the GitHub repository.
+3. Add **PostgreSQL** and **Redis** (if using emails or want Throttle to use redis) database services to your project.
+4. Link your database and Redis connection details to Lobby's environment variables.
+5. Deploy! Railway will automatically detect Node.js, run your build script, and expose the application port.
+
+#### Option B: Render (PaaS)
+
+Render is a developer-friendly platform for web services and databases.
+
+1. Create a **PostgreSQL** and **Redis** (if using emails or want Throttle to use redis) database on Render.
+2. Create a new **Web Service** on Render and connect your GitHub repository.
+3. Set the build and start commands:
+   - **Build Command:** `pnpm run build`
+   - **Start Command:** `pnpm run start:prod`
+4. Configure your environment variables in the Render dashboard.
+5. Deploy!
+
+#### Option C: Vercel (Serverless)
+
+Lobby can be deployed as serverless functions on Vercel.
+
+1. Connect the repository to Vercel.
+2. Set up the required environment variables.
+3. Deploy!
+   > [!NOTE]
+   > Ensure you use serverless-compatible database and Redis connections (like Neon and Upstash) that handle connection pooling efficiently.
+
+#### Option D: VPS & Self-Hosted (Docker Compose)
+
+Perfect if you want full ownership on your own server (DigitalOcean, Hetzner, AWS, etc.).
+
+Lobby includes a `docker-compose.yml` that configures the API, PostgreSQL, and Redis automatically. To start:
 
 ```bash
 docker-compose up -d --build
 ```
 
-Lobby will spin up, automatically detect PostgreSQL and Redis services, run any pending SQL migrations on container startup, and start listening on port `3000`.
+Lobby will spin up, automatically run pending migrations, and listen on port `3000`.
+
+---
+
+### ⚙️ Required Environment Variables
+
+When deploying, ensure the following variables are configured on your host:
+
+| Variable                          | Description                                                        | Required?                                        |
+| :-------------------------------- | :----------------------------------------------------------------- | :----------------------------------------------- |
+| `DATABASE_URL`                    | PostgreSQL connection string                                       | **Yes**                                          |
+| `APP_DOMAIN`                      | Frontend application domain (for CORS security, e.g., `myapp.com`) | **Yes**                                          |
+| `NODE_ENV`                        | Environment mode (`production`, `staging`, or `development`)       | No (defaults to `development`)                   |
+| `REDIS_HOST` / `REDIS_PORT`       | Connection details for Redis                                       | **Yes** if email is enabled in lobby.config.json |
+| `REDIS_PASSWORD` / `REDIS_USER`   | Auth details for Redis                                             | No                                               |
+| `RESEND_API_KEY`                  | Resend API key for sending emails                                  | **Yes** if email is enabled in lobby.config.json |
+| `RESEND_CONFIRMATION_TEMPLATE_ID` | Resend template ID for waitlist verification                       | **Yes** if email is enabled in lobby.config.json |
+| `DATABASE_SSL`                    | Enable TLS/SSL connection to PostgreSQL (`true`/`false`)           | No (defaults to `false`)                         |
+| `DATABASE_CA_CERT_PATH`           | Path to CA cert file for SSL verification                          | **Yes** if `DATABASE_SSL=true`                   |
 
 ---
 
@@ -283,8 +319,8 @@ Lobby's architecture is fully structured, leaving room for expansion in upcoming
 
 - **v0.7.0** _(Current)_: Core dynamic API, setup CLI, BullMQ email dispatchers, dynamic CORS.
 - **v1.0.0**: CLI-based dynamic field modification scripts (`pnpm run fields:add`/`edit`).
-- **v1.1.0**: Secure Admin Dashboard endpoints (`/admin/entries`) with CSV exports, protected via custom API key middleware.
-- **v1.2.0**: One-click cloud templates (Railway, Render, Fly.io).
+- **v1.1.0**: Referral tracking system (generate unique invite links and track signup invite counts).
+- **v2.0.0**: Secure Admin Dashboard endpoints (`/admin/entries`) with CSV exports, protected via custom API key middleware.
 
 ---
 
