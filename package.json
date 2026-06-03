@@ -1,6 +1,6 @@
 {
   "name": "lobby",
-  "version": "1.1.0",
+  "version": "0.7.0",
   "description": "Lobby is an open-source, self-hosted waitlist tool built with NestJS and PostgreSQL.",
   "license": "MIT",
   "scripts": {
