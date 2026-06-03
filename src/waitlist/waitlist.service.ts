@@ -74,6 +74,7 @@ export class WaitlistService {
     if (this.lobbyConfig.email.enabled) {
       const communicationPayload: ConfirmationEmailEventPayload = {
         recipientEmail: entry.email,
+        position: entry.position,
         fields: metadata,
       };
 

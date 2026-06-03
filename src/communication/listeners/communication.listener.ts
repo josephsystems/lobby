@@ -19,6 +19,7 @@ export class CommunicationListener {
       recipientEmail: payload.recipientEmail,
       channels: [CommunicationChannel.EMAIL],
       fields: payload.fields,
+      position: payload.position,
     };
 
     await this.communicationService.dispatchCommunications(jobPayload);
