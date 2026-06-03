@@ -5,6 +5,7 @@ interface BaseEventPayload {
 }
 
 export interface ConfirmationEmailEventPayload extends BaseEventPayload {
+  position: number;
   fields: DynamicFieldValues;
 }
 
