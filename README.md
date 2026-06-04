@@ -324,6 +324,14 @@ Lobby's architecture is fully structured, leaving room for expansion in upcoming
 
 ---
 
+## 🤝 Contributing
+
+We welcome contributions of all kinds! Whether you are fixing a bug, adding a feature, or improving documentation, please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) to understand the expectations for participating in this project.
+
+---
+
 ## 📄 License
 
 Lobby is open-source software licensed under the [MIT License](LICENSE).
