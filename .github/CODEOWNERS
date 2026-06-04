@@ -1,0 +1,8 @@
+# This file defines the owners of the codebase. GitHub uses this to automatically
+# request reviews from these users when a Pull Request is opened.
+
+# Order is important; the last matching pattern takes precedence.
+# For more info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# By default, request review from the main organization/owner for all changes
+*       @josephsystems
