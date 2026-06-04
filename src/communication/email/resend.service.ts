@@ -35,6 +35,8 @@ export class ResendService {
         variables[key] = typeof value === 'boolean' ? String(value) : value;
       }
     }
+    variables.position = payload.position;
+    variables.email = payload.recipientEmail;
 
     await this.sendMail({
       from: emailConfig.from,

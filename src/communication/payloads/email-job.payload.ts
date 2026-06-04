@@ -9,6 +9,7 @@ interface BaseJobPayload {
 }
 
 export interface ConfirmationEmailJobPayload extends BaseJobPayload {
+  position: number;
   fields: DynamicFieldValues;
 }
 
