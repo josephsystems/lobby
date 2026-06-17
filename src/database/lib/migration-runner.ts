@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { Kysely, PostgresDialect, sql } from 'kysely';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { LobbyMigrationTable } from '../../shared/types/database.types';
@@ -14,7 +14,6 @@ interface MigrationDb {
 
 interface ApplyOneOptions {
   pool: Pool;
-  db: Kysely<MigrationDb>;
   filename: string;
   migrationsDir: string;
   log: Logger;
@@ -96,7 +95,7 @@ export async function runMigrations(
   const justApplied: string[] = [];
 
   for (const filename of pending) {
-    await applyOne({ pool, db, filename, migrationsDir, log });
+    await applyOne({ pool, filename, migrationsDir, log });
     justApplied.push(filename);
   }
 
@@ -117,7 +116,6 @@ async function ensureTrackingTable(db: Kysely<MigrationDb>): Promise<void> {
 
 async function applyOne({
   pool,
-  db,
   filename,
   migrationsDir,
   log,
@@ -125,14 +123,15 @@ async function applyOne({
   const filePath = path.join(migrationsDir, filename);
   const sqlContent = fs.readFileSync(filePath, 'utf-8').trim();
 
-  let client;
+  let client: PoolClient | undefined;
   try {
     client = await pool.connect();
     await client.query('BEGIN');
     await client.query(sqlContent);
+    await client.query('INSERT INTO _lobby_migrations (filename) VALUES ($1)', [
+      filename,
+    ]);
     await client.query('COMMIT');
-
-    await db.insertInto('_lobby_migrations').values({ filename }).execute();
 
     log.success(`  ✓ ${filename}`);
   } catch (err) {
