@@ -21,7 +21,7 @@ interface ApplyOneOptions {
 
 // ── Public API ──────────────────────────────────────────
 
-export interface MigrationResult {
+export interface MigrationRunResult {
   applied: string[];
   skipped: number;
 }
@@ -53,7 +53,7 @@ const defaultLogger: Logger = {
 export async function runMigrations(
   pool: Pool,
   log: Logger = defaultLogger
-): Promise<MigrationResult> {
+): Promise<MigrationRunResult> {
   const db = new Kysely<MigrationDb>({
     dialect: new PostgresDialect({ pool }),
   });
