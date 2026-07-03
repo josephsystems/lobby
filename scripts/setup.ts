@@ -3,8 +3,6 @@ import {
   outro,
   text,
   confirm,
-  select,
-  isCancel,
   cancel,
   note,
   log,
@@ -20,9 +18,16 @@ import {
   type EmailConfig,
   type PrivacyConfig,
   type FieldDefinition,
-  type FieldType,
 } from '../src/shared/types/config.types';
 import { CONFIG_FILENAME } from '../src/shared/constants/config.constants';
+import { bail } from './lib/validation';
+import { CONFIG_PATH, MIGRATIONS_DIR } from './lib/paths';
+import {
+  promptFieldName,
+  promptFieldType,
+  promptRequired,
+  promptMaxLength,
+} from './lib/prompts';
 
 // ── Interfaces ──────────────────────────────────────────
 interface BuiltInFields {
@@ -32,35 +37,11 @@ interface BuiltInFields {
 
 // ── Constants ───────────────────────────────────────────
 
-const CONFIG_PATH = path.join(PROJECT_ROOT, CONFIG_FILENAME);
 const GITIGNORE_PATH = path.join(PROJECT_ROOT, '.gitignore');
-const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'migrations');
-
-const RESERVED_FIELDS: Record<string, string> = {
-  id: 'Auto-generated unique identifier.',
-  email: 'Primary email address (always collected).',
-  position: 'Auto-assigned waitlist position.',
-  ip_address: 'Client IP address (configurable via privacy settings).',
-  user_agent: 'Client user-agent string (configurable via privacy settings).',
-  created_at: 'Timestamp of when the entry was created.',
-  updated_at: 'Timestamp of when the entry was last updated.',
-};
-
-const RESERVED_FIELD_NAMES = new Set(Object.keys(RESERVED_FIELDS));
 
 // ── Helpers ─────────────────────────────────────────────
 
-function bail(value: unknown): asserts value is never {
-  if (isCancel(value)) {
-    cancel('Setup cancelled.');
-    process.exit(0);
-  }
-}
-
-function isSnakeCase(value: string): boolean {
-  return /^[a-z][a-z0-9_]*$/.test(value);
-}
-
+/** Appends an entry to .gitignore. */
 function ensureGitignored(entry: string): void {
   if (!fs.existsSync(GITIGNORE_PATH)) {
     fs.writeFileSync(GITIGNORE_PATH, `${entry}\n`, 'utf-8');
@@ -79,6 +60,7 @@ function ensureGitignored(entry: string): void {
 
 // ── Prompts ─────────────────────────────────────────────
 
+/** Exits early if lobby.config.json already exists (prevents accidental re-setup). */
 function guardAlreadyConfigured(): void {
   if (fs.existsSync(CONFIG_PATH)) {
     log.error(`${CONFIG_FILENAME} already exists.`);
@@ -87,6 +69,7 @@ function guardAlreadyConfigured(): void {
   }
 }
 
+/** Prompts for the user-facing waitlist name. */
 async function promptWaitlistName(): Promise<string> {
   const name = await text({
     message: 'What is your waitlist called?',
@@ -95,29 +78,24 @@ async function promptWaitlistName(): Promise<string> {
       v!.trim().length < 2 ? 'Name must be at least 2 characters.' : undefined,
   });
   bail(name);
-  return String(name);
+  return name;
 }
 
+/** Prompts for built-in first/last name fields and whether they are required. */
 async function promptBuiltInFields(): Promise<BuiltInFields> {
   const wantsFirstName = await confirm({ message: 'Collect first name?' });
   bail(wantsFirstName);
 
-  let firstNameRequired = false;
-  if (wantsFirstName) {
-    const r = await confirm({ message: 'Is first name required?' });
-    bail(r);
-    firstNameRequired = r;
-  }
+  const firstNameRequired = wantsFirstName
+    ? await promptRequired('first name')
+    : false;
 
   const wantsLastName = await confirm({ message: 'Collect last name?' });
   bail(wantsLastName);
 
-  let lastNameRequired = false;
-  if (wantsLastName) {
-    const r = await confirm({ message: 'Is last name required?' });
-    bail(r);
-    lastNameRequired = r;
-  }
+  const lastNameRequired = wantsLastName
+    ? await promptRequired('last name')
+    : false;
 
   return {
     firstName: { enabled: wantsFirstName, required: firstNameRequired },
@@ -125,6 +103,7 @@ async function promptBuiltInFields(): Promise<BuiltInFields> {
   };
 }
 
+/** Prompts for privacy-sensitive data collection (IP, user-agent). */
 async function promptPrivacyConfig(): Promise<PrivacyConfig> {
   const collectIp = await confirm({
     message: 'Collect IP addresses? (privacy-sensitive)',
@@ -139,6 +118,7 @@ async function promptPrivacyConfig(): Promise<PrivacyConfig> {
   return { collectIp, collectUserAgent };
 }
 
+/** Collects zero or more custom field definitions in a loop. */
 async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
   const fields: Record<string, FieldDefinition> = {};
 
@@ -153,59 +133,18 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
 
     if (!wantsMore) break;
 
-    const fieldName = await text({
-      message: 'Field name (snake_case)',
-      placeholder: 'phone_number',
-      validate: (v) => {
-        if (!v || !v.trim()) return 'Field name is required.';
-        if (!isSnakeCase(v)) return 'Must be snake_case (e.g. phone_number).';
-        if (RESERVED_FIELD_NAMES.has(v))
-          return `"${v}" is reserved: ${RESERVED_FIELDS[v]}`;
-        if (fields[v]) return `"${v}" is already defined.`;
-        return undefined;
-      },
-    });
-    bail(fieldName);
-
-    const fieldType = await select<FieldType>({
-      message: 'Field type',
-      options: [
-        { value: 'string', label: 'string', hint: 'text, emails, URLs' },
-        { value: 'number', label: 'number', hint: 'integers, decimals' },
-        { value: 'boolean', label: 'boolean', hint: 'true / false' },
-      ],
-    });
-    bail(fieldType);
-
-    const fieldRequired = await confirm({
-      message: `Is "${fieldName}" required?`,
-    });
-    bail(fieldRequired);
+    const name = await promptFieldName(new Set(Object.keys(fields)));
+    const type = await promptFieldType();
+    const required = await promptRequired(name);
 
     let maxLength: number | undefined = undefined;
-    if (fieldType === 'string') {
-      const len = await text({
-        message: `Maximum character length for "${fieldName}"?`,
-        placeholder: '255',
-        validate: (v) => {
-          if (!v || !v.trim()) return undefined; // Defaults to 255
-          const num = Number(v);
-          if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
-            return 'Must be a positive integer.';
-          }
-          if (num > 65535) {
-            return 'Must be less than or equal to 65535 (maximum VARCHAR size).';
-          }
-          return undefined;
-        },
-      });
-      bail(len);
-      maxLength = len ? Number(len) : 255;
+    if (type === 'string') {
+      maxLength = await promptMaxLength(name);
     }
 
-    fields[String(fieldName)] = {
-      type: fieldType as FieldType,
-      required: Boolean(fieldRequired),
+    fields[name] = {
+      type,
+      required,
       ...(maxLength !== undefined && { maxLength }),
     };
   }
@@ -213,6 +152,7 @@ async function promptCustomFields(): Promise<Record<string, FieldDefinition>> {
   return fields;
 }
 
+/** Prompts for email confirmation settings (Resend integration). */
 async function promptEmailConfig(): Promise<EmailConfig> {
   const enabled = await confirm({
     message: 'Enable email confirmation? (requires Resend)',
@@ -231,11 +171,12 @@ async function promptEmailConfig(): Promise<EmailConfig> {
   });
   bail(from);
 
-  return { enabled: true, from: String(from) };
+  return { enabled: true, from };
 }
 
 // ── Review & Write ──────────────────────────────────────
 
+/** Assembles all prompt responses into a complete LobbyConfig object. */
 function buildConfig(
   waitlistName: string,
   builtIn: BuiltInFields,
@@ -272,6 +213,7 @@ function buildConfig(
   };
 }
 
+/** Builds a tabular summary of fixed + user-defined columns for the review screen. */
 function formatFieldSummary(
   builtIn: BuiltInFields,
   customFields: Record<string, FieldDefinition>,
@@ -319,6 +261,7 @@ function formatFieldSummary(
   ].join('\n');
 }
 
+/** Writes config and initial migration to disk, then updates .gitignore. */
 async function confirmAndWrite(config: LobbyConfig): Promise<void> {
   const s = spinner();
 
@@ -331,10 +274,10 @@ async function confirmAndWrite(config: LobbyConfig): Promise<void> {
   s.stop(`${CONFIG_FILENAME} created.`);
 
   s.start('Generating initial migration...');
+
   if (fs.existsSync(MIGRATIONS_DIR)) {
     fs.rmSync(MIGRATIONS_DIR, { recursive: true, force: true });
   }
-  fs.mkdirSync(MIGRATIONS_DIR, { recursive: true });
 
   const filename = `${getMigrationTimestamp()}_initial_setup.sql`;
   const filePath = path.join(MIGRATIONS_DIR, filename);
@@ -360,7 +303,7 @@ async function main(): Promise<void> {
   const email = await promptEmailConfig();
 
   note(
-    `Waitlist : ${waitlistName}\nFields   :\n${formatFieldSummary(builtIn, customFields, privacy)}\nEmail    : ${
+    `Waitlist : ${waitlistName}\n\n\nFields   :\n${formatFieldSummary(builtIn, customFields, privacy)}\n\n\nEmail    : ${
       email.enabled ? `enabled (from: ${email.from})` : 'disabled'
     }`,
     'Review'

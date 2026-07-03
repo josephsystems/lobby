@@ -140,18 +140,7 @@ export function isSqlReservedKeyword(value: string): boolean {
   return SQL_RESERVED_KEYWORDS.has(value.toLowerCase());
 }
 
-/**
- * Validates a max-length input string.
- * @param required – when true, empty input is rejected
- */
-export function validateMaxLength(
-  v: string | undefined,
-  required = false
-): string | undefined {
-  if (!v || !v.trim()) return required ? 'A value is required.' : undefined;
-  const num = Number(v);
-  if (isNaN(num) || num <= 0 || !Number.isInteger(num))
-    return 'Must be a positive integer.';
-  if (num > 10_485_760) return 'Must be ≤ 10_485_760.';
-  return undefined;
+/** Checks whether a string is a reserved field name. */
+export function isReserved(value: string): boolean {
+  return RESERVED_FIELD_NAMES.has(value.toLowerCase());
 }
