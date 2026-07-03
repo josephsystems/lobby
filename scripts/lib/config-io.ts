@@ -1,7 +1,8 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import type { LobbyConfig } from '../../src/shared/types/config.types';
 import { CONFIG_FILENAME } from '../../src/shared/constants/config.constants';
-import { CONFIG_PATH } from './paths';
+import { CONFIG_PATH, MIGRATIONS_DIR } from './paths';
 
 // Helpers ────────────────────────────────────────────────
 
@@ -43,4 +44,19 @@ export function saveConfig(config: LobbyConfig): void {
     JSON.stringify(config, null, 2) + '\n',
     'utf-8'
   );
+}
+
+// ── Migration File I/O ──────────────────────────────────
+
+/**
+ * Writes a migration SQL string to a timestamped file.
+ * Returns the filename for display purposes.
+ */
+export function writeMigration(sql: string, description: string): string {
+  fs.mkdirSync(MIGRATIONS_DIR, { recursive: true });
+
+  const filename = `${getMigrationTimestamp()}_${description}.sql`;
+  const filePath = path.join(MIGRATIONS_DIR, filename);
+  fs.writeFileSync(filePath, sql, 'utf-8');
+  return filename;
 }
