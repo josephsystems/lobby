@@ -11,7 +11,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateInitialMigration } from '../src/database/lib/migration-generator';
-import { getMigrationTimestamp } from '../src/shared/utils/timestamp.util';
+import { formatFieldLine } from './lib/preview';
 import { PROJECT_ROOT } from '../src/shared/utils/paths.util';
 import {
   type LobbyConfig,
@@ -28,6 +28,7 @@ import {
   promptRequired,
   promptMaxLength,
 } from './lib/prompts';
+import { saveConfig, writeMigration } from './lib/config-io';
 
 // ── Interfaces ──────────────────────────────────────────
 interface BuiltInFields {
@@ -233,21 +234,25 @@ function formatFieldSummary(
   const userColumns = [
     ...(builtIn.firstName.enabled
       ? [
-          `first_name    VARCHAR(50)   ${builtIn.firstName.required ? 'NOT NULL' : 'optional'}`,
+          formatFieldLine('first_name', {
+            type: 'string',
+            required: builtIn.firstName.required,
+            maxLength: 50,
+          }),
         ]
       : []),
     ...(builtIn.lastName.enabled
       ? [
-          `last_name     VARCHAR(50)   ${builtIn.lastName.required ? 'NOT NULL' : 'optional'}`,
+          formatFieldLine('last_name', {
+            type: 'string',
+            required: builtIn.lastName.required,
+            maxLength: 50,
+          }),
         ]
       : []),
-    ...Object.entries(customFields).map(([name, def]) => {
-      let typeStr = def.type.toUpperCase();
-      if (def.type === 'string') {
-        typeStr = `VARCHAR(${def.maxLength || 255})`;
-      }
-      return `${name.padEnd(14)}${typeStr.padEnd(14)}${def.required ? 'NOT NULL' : 'optional'}`;
-    }),
+    ...Object.entries(customFields).map(([name, def]) =>
+      formatFieldLine(name, def)
+    ),
   ];
 
   const separator = '─'.repeat(57);
@@ -266,11 +271,7 @@ async function confirmAndWrite(config: LobbyConfig): Promise<void> {
   const s = spinner();
 
   s.start(`Generating ${CONFIG_FILENAME}...`);
-  fs.writeFileSync(
-    CONFIG_PATH,
-    JSON.stringify(config, null, 2) + '\n',
-    'utf-8'
-  );
+  saveConfig(config);
   s.stop(`${CONFIG_FILENAME} created.`);
 
   s.start('Generating initial migration...');
@@ -279,9 +280,10 @@ async function confirmAndWrite(config: LobbyConfig): Promise<void> {
     fs.rmSync(MIGRATIONS_DIR, { recursive: true, force: true });
   }
 
-  const filename = `${getMigrationTimestamp()}_initial_setup.sql`;
-  const filePath = path.join(MIGRATIONS_DIR, filename);
-  fs.writeFileSync(filePath, generateInitialMigration(config), 'utf-8');
+  const filename = writeMigration(
+    generateInitialMigration(config),
+    'initial_setup'
+  );
   s.stop(`Migration file created: migrations/${filename}`);
 
   ensureGitignored(CONFIG_FILENAME);
