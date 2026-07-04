@@ -1,5 +1,7 @@
 export type FieldType = 'string' | 'number' | 'boolean';
 
+export type FieldValue = string | number | boolean;
+
 export interface FieldDefinition {
   type: FieldType;
   required: boolean;
@@ -11,7 +13,7 @@ export interface FieldDefinition {
  * Keys and types are only known at deployment time,
  * so this is the honest compile-time representation.
  */
-export type DynamicFieldValues = Record<string, string | number | boolean>;
+export type DynamicFieldValues = Record<string, FieldValue>;
 
 export type EmailConfig = { enabled: true; from: string } | { enabled: false };
 
