@@ -104,6 +104,9 @@ export async function runMigrations(
 
 // ── Internals ───────────────────────────────────────────
 
+/**
+ * Creates the _lobby_migrations tracking table if it doesn't exist yet.
+ */
 async function ensureTrackingTable(db: Kysely<MigrationDb>): Promise<void> {
   await sql`
     CREATE TABLE IF NOT EXISTS _lobby_migrations (
@@ -114,6 +117,10 @@ async function ensureTrackingTable(db: Kysely<MigrationDb>): Promise<void> {
   `.execute(db);
 }
 
+/**
+ * Applies a single migration file inside a transaction.
+ * Records it in the tracking table on success; rolls back and throws on failure.
+ */
 async function applyOne({
   pool,
   filename,
