@@ -14,7 +14,8 @@
     "clean": "rm -rf dist",
     "prepare": "husky",
     "setup": "tsx scripts/setup.ts",
-    "migration:run": "tsx scripts/migration-run.ts"
+    "migration:run": "tsx scripts/migration-run.ts",
+    "fields:add": "tsx scripts/fields-add.ts"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",
