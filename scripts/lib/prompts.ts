@@ -1,5 +1,8 @@
 import { text, confirm, select } from '@clack/prompts';
-import type { FieldType } from '../../src/shared/types/config.types';
+import type {
+  FieldType,
+  FieldValue,
+} from '../../src/shared/types/config.types';
 import {
   bail,
   isReserved,
@@ -135,7 +138,7 @@ export async function promptDefault(
   fieldName: string,
   type: FieldType,
   required: boolean
-): Promise<string | number | boolean | undefined> {
+): Promise<FieldValue | undefined> {
   const suffix = required
     ? ' (required — used to backfill existing rows)'
     : ' (optional — press Enter to skip)';

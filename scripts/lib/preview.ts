@@ -1,4 +1,7 @@
-import type { FieldDefinition } from '../../src/shared/types/config.types';
+import type {
+  FieldDefinition,
+  FieldValue,
+} from '../../src/shared/types/config.types';
 import { toSqlType } from '../../src/database/lib/db-type-mapping';
 
 // ── Constants ───────────────────────────────────────────
@@ -12,7 +15,7 @@ const TYPE_PAD = 14;
 export function formatFieldLine(
   name: string,
   def: FieldDefinition,
-  defaultValue?: string | number | boolean
+  defaultValue?: FieldValue
 ): string {
   const sqlType = toSqlType(def);
   const req = def.required ? 'NOT NULL' : 'optional';
@@ -29,7 +32,7 @@ export function formatFieldLines(
   fields: {
     name: string;
     definition: FieldDefinition;
-    defaultValue?: string | number | boolean;
+    defaultValue?: FieldValue;
   }[]
 ): string {
   return fields
