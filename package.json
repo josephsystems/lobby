@@ -15,6 +15,7 @@
     "prepare": "husky",
     "setup": "tsx scripts/setup.ts",
     "migration:run": "tsx scripts/migration-run.ts",
+    "fields": "tsx scripts/fields.ts",
     "fields:add": "tsx scripts/fields-add.ts",
     "fields:edit": "tsx scripts/fields-edit.ts"
   },
