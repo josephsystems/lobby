@@ -328,7 +328,7 @@ async function main(): Promise<void> {
   await confirmAndWrite(config);
 
   note(
-    '1. Fill in your .env values (sample at .env.example)\n2. Run pnpm run migration:run',
+    '1. Fill in your .env values (sample at .env.example)\n2. Run "pnpm run migration:run"',
     'Next steps'
   );
   outro('Good luck with your launch 🚀');
