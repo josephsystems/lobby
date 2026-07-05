@@ -22,7 +22,7 @@ export function loadAndValidateConfig(): BootstrapConfig {
   if (!fs.existsSync(configPath)) {
     // eslint-disable-next-line no-console
     console.error(
-      `\x1b[31m[Config Error] ${CONFIG_FILENAME} not found. Run "npm run setup" first.\x1b[0m`
+      `\x1b[31m[Config Error] ${CONFIG_FILENAME} not found. Run "pnpm run setup" first.\x1b[0m`
     );
     process.exit(1);
   }
