@@ -144,8 +144,13 @@ async function main(): Promise<void> {
   outro('Done ✓');
 }
 
-main().catch((err: unknown) => {
-  // eslint-disable-next-line no-console
-  console.error('Unexpected error:', err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    // eslint-disable-next-line no-console
+    console.error(
+      'Unexpected error:',
+      err instanceof Error ? err.message : err
+    );
+    process.exit(1);
+  });
+}
