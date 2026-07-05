@@ -13,7 +13,8 @@ import { LobbyDatabase } from '../shared/types/database.types';
 import { EventService } from '../shared/events/event.service';
 import { CommunicationEvent } from '../shared/events/names/communication.event';
 import { ConfirmationEmailEventPayload } from '../shared/events/payloads/email-event.payload';
-import { DynamicFieldValues } from '../shared/types/config.types';
+import { DynamicFieldValues, FieldValue } from '../shared/types/config.types';
+import { WAITLIST_TABLE } from '../shared/constants/database.constants';
 
 @Injectable()
 export class WaitlistService {
@@ -37,7 +38,7 @@ export class WaitlistService {
 
     // 2. Check for duplicate
     const existing = await this.databaseService.db
-      .selectFrom('waitlist_entries')
+      .selectFrom(WAITLIST_TABLE)
       .select(['id', 'email', 'position'])
       .where('email', '=', email)
       .executeTakeFirst();
@@ -66,8 +67,8 @@ export class WaitlistService {
     }
 
     const entry = await this.databaseService.db
-      .insertInto('waitlist_entries')
-      .values(insertData as InsertObject<LobbyDatabase, 'waitlist_entries'>)
+      .insertInto(WAITLIST_TABLE)
+      .values(insertData as InsertObject<LobbyDatabase, typeof WAITLIST_TABLE>)
       .returning(['id', 'email', 'position'])
       .executeTakeFirstOrThrow();
 
@@ -97,7 +98,7 @@ export class WaitlistService {
 
   async getPosition(email: string): Promise<WaitlistPositionResponse> {
     const entry = await this.databaseService.db
-      .selectFrom('waitlist_entries')
+      .selectFrom(WAITLIST_TABLE)
       .select(['email', 'position'])
       .where('email', '=', email.toLowerCase())
       .executeTakeFirst();
@@ -149,7 +150,7 @@ export class WaitlistService {
             );
           }
         }
-        sanitized[name] = value as string | number | boolean;
+        sanitized[name] = value as FieldValue;
       }
     }
 
