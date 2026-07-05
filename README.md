@@ -210,6 +210,73 @@ GET /api/v1/waitlist/position?email=developer@example.com
 
 ---
 
+## 🔧 Schema & Field Management
+
+One of Lobby's core strengths is its ability to adapt. As your product evolves, you can safely add, modify, or remove fields with **zero data loss**. Lobby handles this using interactive CLI wizards that automatically update your configurations and generate standard SQL migration files.
+
+### CLI Commands Overview
+
+Lobby provides three distinct commands to manage your database schema:
+
+| Command                | Description                                                                                                  |
+| :--------------------- | :----------------------------------------------------------------------------------------------------------- |
+| `pnpm run fields`      | **Master Schema Wizard**: Run this to edit existing fields first, followed by adding new ones.               |
+| `pnpm run fields:add`  | **Add Fields Wizard**: Instantly prompt and append new custom columns to your schema.                        |
+| `pnpm run fields:edit` | **Edit Fields Wizard**: Modify existing field attributes (rename, type, nullability) or safely drop columns. |
+
+---
+
+### 1. Adding New Fields (`pnpm run fields:add`)
+
+When you want to capture more information from your users, run the add fields wizard:
+
+```bash
+pnpm run fields:add
+```
+
+**How it works:**
+
+1. **Interactive Prompt**: The CLI guides you through defining the new field's **name** (validated to enforce `snake_case`), **data type** (`string`, `integer`, `boolean`, etc.), **nullability** (required vs optional), and **default values**.
+2. **Config Update**: It automatically appends the field definition to your local `lobby.config.json`.
+3. **Migration Generation**: Lobby outputs a custom SQL migration file in `migrations/{timestamp}_add_fields.sql` describing the exact `ALTER TABLE waitlist_entries ADD COLUMN ...` instructions.
+4. **Application**: Apply the changes to your PostgreSQL instance by running:
+   ```bash
+   pnpm run migration:run
+   ```
+
+---
+
+### 2. Modifying & Deleting Fields (`pnpm run fields:edit`)
+
+To update or clean up existing custom fields, run the edit wizard:
+
+```bash
+pnpm run fields:edit
+```
+
+**How it works:**
+
+1. **Select Field**: Choose a field to modify from the interactive CLI list.
+2. **Choose Action**:
+   - **Rename**: Safely renames the field.
+   - **Change type**: E.g., change from `integer` to `string`.
+   - **Change required**: Make a column required (`NOT NULL`) or optional.
+   - **Change max length**: Adjust string constraint lengths.
+   - **Delete this field**: Drops the column entirely.
+3. **Migration Generation**: Generates `migrations/{timestamp}_edit_fields.sql` containing the compiled DDL statements.
+4. **Application**: Apply the changes to your database:
+   ```bash
+   pnpm run migration:run
+   ```
+
+> [!WARNING]
+> **Avoid Direct Config Edits**: Always use the CLI commands to manage your waitlist schema. Do not modify `lobby.config.json` directly. Editing the JSON file manually bypasses the migration generation process, causing your application's validation layers to fall out of sync with the underlying PostgreSQL database schema.
+
+> [!CAUTION]
+> **Destructive Operations & Production Data**: Dropping columns or changing column types can result in permanent data loss or migration execution failures if existing data violates new constraints. Always backup your database and inspect the generated SQL migration files prior to executing them on production servers.
+
+---
+
 ## 🔒 Security & CORS
 
 Lobby is a public-facing API but contains rigorous protection to prevent malicious third parties from spamming your backend from random origins:
@@ -317,8 +384,7 @@ When deploying, ensure the following variables are configured on your host:
 
 Lobby's architecture is fully structured, leaving room for expansion in upcoming minor and major releases:
 
-- **v0.7.0** _(Current)_: Core dynamic API, setup CLI, BullMQ email dispatchers, dynamic CORS.
-- **v1.0.0**: CLI-based dynamic field modification scripts (`pnpm run fields:add`/`edit`).
+- **v1.0.0** _(Current)_: Core dynamic API, setup/schema CLI wizards, BullMQ email dispatchers, dynamic CORS, migration runner.
 - **v1.1.0**: Referral tracking system (generate unique invite links and track signup invite counts).
 - **v2.0.0**: Secure Admin Dashboard endpoints (`/admin/entries`) with CSV exports, protected via custom API key middleware.
 
